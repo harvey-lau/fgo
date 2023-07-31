@@ -1,1 +1,0 @@
-# The References of fgo
