@@ -1,1 +1,1 @@
-# The ReadMe of fgo
+# The ReadMe of FGo

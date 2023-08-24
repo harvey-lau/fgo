@@ -1,1 +1,16 @@
 0-dft
+afl-analyze
+afl-as
+afl-clang
+afl-clang++
+afl-clang-fast
+afl-clang-fast++
+afl-fuzz
+afl-g++
+afl-gcc
+afl-gotcpu
+afl-showmap
+afl-llvm-pass.so
+afl-tmin
+as
+*.o
