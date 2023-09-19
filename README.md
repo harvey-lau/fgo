@@ -1,4 +1,4 @@
-# The ReadMe of FGo
+# The ReadMe of fgo
 
 ## 0x01 Introduction
 
@@ -35,9 +35,13 @@ void noway() {
 
 The value of $p$ equals the probability that `rand() % 10 + 1 > 9` holds. For example, you can set `rand() % 100 + 1 > 95` to get $p = 0.05$.
 
-Read [our article](https://arxiv.org/abs/2307.05961) for more details.
+Read [its paper](https://arxiv.org/abs/2307.05961) for more details.
 
-## 0x02 The Fuzzing of min1 by FGo
+## 0x02 How to Use
+
+For example, the following commands fuzz `min1` step by step.
+
+> You can find the related information of `min1` like the project version in [this paper](https://arxiv.org/abs/2307.05961).
 
 ### 1. Preparation
 
@@ -103,7 +107,7 @@ mkdir in
 wget -P in http://condor.depaul.edu/sjost/hci430/flash-examples/swf/bumble-bee1.swf
 ```
 
-### 6. Fuzzing  
+### 6. Fuzzing
 
 ```shell
 cd ~/obj-fgo/min1/obj-fgo

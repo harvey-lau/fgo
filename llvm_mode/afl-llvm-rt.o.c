@@ -36,7 +36,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
-// The definition of noway()
+// FGo: define noway().
 
 void noway() {
     srand(time(0));

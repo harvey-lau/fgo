@@ -552,7 +552,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         }
         else {
-          // Call noway()
+          // FGo: call noway().
           FunctionCallee noway = M.getOrInsertFunction(
             "noway", Type::getVoidTy(C)
           );

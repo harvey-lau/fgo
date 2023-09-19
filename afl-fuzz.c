@@ -2483,8 +2483,7 @@ static u8 run_target(char** argv, u32 timeout) {
 
   /* Report outcome to caller. */
 
-  /* FGo: deal with coredump. */
-
+  // FGo: deal with the coredump triggered by assert(false).
   if (status == 6) return FAULT_NONE;
 
   if (WIFSIGNALED(status) && !stop_soon) {
