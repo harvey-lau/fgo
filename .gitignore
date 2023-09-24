@@ -14,3 +14,15 @@ afl-llvm-pass.so
 afl-tmin
 as
 *.o
+*.so
+
+## VS Code
+.vscode
+
+## ninja
+*.ninja
+.ninja*
+
+## cmake
+*.cmake
+CMakeCache.txt
