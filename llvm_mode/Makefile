@@ -95,17 +95,15 @@ endif
 	@$(CC) $(CFLAGS) -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 test_build: $(PROGS)
-# FGo: disable the test_build to let the assert(false) one compile successfully.
-
-#	@echo "[*] Testing the CC wrapper and instrumentation output..."
-#	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
+	@echo "[*] Testing the CC wrapper and instrumentation output..."
+	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 # Use /dev/null to avoid problems with optimization messing up expected
 # branches. See https://github.com/google/AFL/issues/30.
-#	../afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
-#	echo 1 | ../afl-showmap -m none -q -o .test-instr1 ./test-instr
-#	@rm -f test-instr
-#	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please ping <lcamtuf@google.com> to troubleshoot the issue."; echo; exit 1; fi
-#	@echo "[+] All right, the instrumentation seems to be working!"
+	../afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
+	echo 1 | ../afl-showmap -m none -q -o .test-instr1 ./test-instr
+	@rm -f test-instr
+	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please ping <lcamtuf@google.com> to troubleshoot the issue."; echo; exit 1; fi
+	@echo "[+] All right, the instrumentation seems to be working!"
 
 all_done: test_build
 	@echo "[+] All done! You can now use '../afl-clang-fast' to compile programs."
