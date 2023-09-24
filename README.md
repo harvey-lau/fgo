@@ -100,7 +100,7 @@ wget -P in http://condor.depaul.edu/sjost/hci430/flash-examples/swf/bumble-bee1.
 ### 6. Fuzzing
 
 - `-p <pre_time>`:  `pre_time` is an integer along with its time unit (second `s`, minute `m`, hour `h`)
-- `-P <prob>`: `prob` is an integer scaled to 0~100
+- `-P <prob>`: `prob` is an integer representing the *cut-the-loss* probability, which is scaled to 0~100
 
 ```shell
 cd ~/obj-fgo/min1/obj-fgo
