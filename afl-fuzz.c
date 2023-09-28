@@ -5590,12 +5590,12 @@ static u8 fuzz_one(char **argv)
    * SIMPLE BITFLIP (+dictionary construction) *
    *********************************************/
 
-#define FLIP_BIT(_ar, _b)                     \
-  do                                          \
-  {                                           \
-    u8 *_arf = (u8 *)(_ar);                   \
-    u32 _bf = (_b);                           \
-    _arf[(_bf) >> 3] ^= (128 >> ((_bf) & 7)); \
+#define FLIP_BIT(_ar, _b)                   \
+  do                                        \
+  {                                         \
+    u8 *_arf = (u8 *)(_ar);                 \
+    u32 _bf = (_b);                         \
+    _arf[(_bf) >> 3] ^= (128 >> ((_bf)&7)); \
   } while (0)
 
   /* Single walking bit. */
@@ -8421,7 +8421,7 @@ int main(int argc, char **argv)
   gettimeofday(&tv, &tz);
   srandom(tv.tv_sec ^ tv.tv_usec ^ getpid());
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qz:c:p:P:")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qz:c:e:P:")) > 0)
 
     switch (opt)
     {

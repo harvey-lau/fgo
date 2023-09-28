@@ -19,6 +19,9 @@ as
 ## VS Code
 .vscode
 
+## Mac OS
+.DS_Store
+
 ## ninja
 *.ninja
 .ninja*
