@@ -2628,9 +2628,12 @@ static u8 run_target(char **argv, u32 timeout)
 
   /* Report outcome to caller. */
 
+  /*
+  // previous version
   // FGo: deal with the coredump triggered by assert(false).
   if (status == 6)
     return FAULT_NONE;
+    */
 
   if (WIFSIGNALED(status) && !stop_soon)
   {
@@ -7721,7 +7724,7 @@ static void usage(u8 *argv0)
 
        "FGo settings:\n\n"
 
-       "  -p ptime      - preparation time for FGo\n"
+       "  -e ptime      - preparation time for FGo\n"
        "                  in secs (s), mins (m), hrs (h)\n"
        "  -P prob       - basic probability of early termination (scale to 0~100)\n\n"
 
@@ -8423,16 +8426,16 @@ int main(int argc, char **argv)
     switch (opt)
     {
 
-    case 'p': /* preparation time (s) */
+    case 'e': /* preparation time (s) */
     {
       if (fgo_pre_flag)
-        FATAL("Multiple -p options not supported");
+        FATAL("Multiple -e options not supported");
 
       u32 temp_pre_time = 0u;
       u8 temp_time_unit = 's';
       if (sscanf(optarg, "%u%c", &temp_pre_time, &temp_time_unit) < 1 ||
           optarg[0] == '-')
-        FATAL("Bad syntax used for -p");
+        FATAL("Bad syntax used for -e");
 
       switch (temp_time_unit)
       {
@@ -8446,13 +8449,13 @@ int main(int argc, char **argv)
         fgo_pre_time = (u64)temp_pre_time * 3600ull * 1000ull;
         break;
       default:
-        FATAL("Unsupported suffix or bad syntax for -p");
+        FATAL("Unsupported suffix or bad syntax for -e");
         break;
       }
 
       // FGo: preparation time limit
       if (fgo_pre_time < 5 * 60 * 1000ull) // FGo: Debug: change pre time limit 5 * 60 * 1000ull
-        FATAL("Dangerously low value of -p");
+        FATAL("Dangerously low value of -e");
 
       fgo_pre_flag = 1;
     }

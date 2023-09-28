@@ -20,7 +20,7 @@ in the step which generates distance files.
 
 > Of course, all environment variables should be changed from AFLGO (or aflgo) to FGO (or fgo).
 
-FGo add two argument options `-p` and `-P` to `afl-fuzz`, where `-p` represents the preparation time of FGo and `-P` represents the *cut-the-loss* probability $p$. 
+FGo adds two argument options `-e` and `-P` to `afl-fuzz`, where `-e` represents the preparation time of FGo and `-P` represents the *cut-the-loss* probability $p$. 
 
 - During the preparation time period, FGo doesn't conduct the *cut-the-loss* procedure since the directed fuzzer needs to analyze the feedback for the first time in a while in order for better performance.
 - The *cut-the-loss* probability $p$ has the limit $0 \lt p \lt 1.0$ and its precision is $0.01$. 
@@ -99,10 +99,10 @@ wget -P in http://condor.depaul.edu/sjost/hci430/flash-examples/swf/bumble-bee1.
 
 ### 6. Fuzzing
 
-- `-p <pre_time>`:  `pre_time` is an integer along with its time unit (second `s`, minute `m`, hour `h`)
+- `-e <pre_time>`:  `pre_time` is an integer along with its time unit (second `s`, minute `m`, hour `h`)
 - `-P <prob>`: `prob` is an integer representing the *cut-the-loss* probability, which is scaled to 0~100
 
 ```shell
 cd ~/obj-fgo/min1/obj-fgo
-~/fgo/afl-fuzz -m none -z exp -c 120m -i in -o out -t 5000+ -p 30m -P 20 ./util/swftophp @@
+~/fgo/afl-fuzz -m none -z exp -c 120m -i in -o out -t 5000+ -e 30m -P 20 ./util/swftophp @@
 ```
