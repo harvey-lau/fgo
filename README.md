@@ -106,3 +106,14 @@ wget -P in http://condor.depaul.edu/sjost/hci430/flash-examples/swf/bumble-bee1.
 cd ~/obj-fgo/min1/obj-fgo
 ~/fgo/afl-fuzz -m none -z exp -c 120m -i in -o out -t 5000+ -e 30m -P 20 ./util/swftophp @@
 ```
+
+### Addition
+This commit added some options to the AFL compiler `afl-clang-fast` and it was written by a memory-safe programming language Rust.
+* You can set environment variable `AFLGO_PARAMS_CHECK` in order to check duplicate AFLGo specified argument options including `-targets`, `-outdir` and `-distance`.
+* What's more, you can set up the AFLGo specified options in environment variables `AFLGO_TARGETS_FILE`, `AFLGO_OUTDIR` and `AFLGO_DISTANCE_FILE`. The AFLGo specified options in environment variables have the highest priority.
+* Besides, you can also specify `AFLGO_ADDITIONAL_PARAMS` to add other compiler options and the compiler program will also check whether there are duplicate additional options.
+
+The reason for these changes is that some projects may ignore the `CFLAGS` or `CXXFLAGS` from the environment variables and the previous compiler program was written in C which had some memory safety issues.
+
+### Build
+Under the [`llvm_mode`](./llvm_mode/) directory, run `make USE_RUST=1` to build the compiler program of Rust version.

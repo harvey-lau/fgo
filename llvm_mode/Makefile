@@ -30,6 +30,11 @@ CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DVERSION=\"$(VERSION)\" 
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
+  RUST_FEATURES ?= USE_TRACE_PC
+endif
+
+ifdef MESSAGES_TO_STDOUT
+  RUST_FEATURES += MESSAGES_TO_STDOUT
 endif
 
 CXXFLAGS    ?= -O3 -funroll-loops
@@ -55,10 +60,17 @@ ifeq "$(origin CC)" "default"
   CXX        = clang++
 endif
 
+ifdef USE_RUST
+  	CARGO         = cargo
+  	RUSTC         = rustc
+endif
+
+AFL_CLANG_FAST = ../afl-clang-fast
+
 ifndef AFL_TRACE_PC
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o
+  PROGS      = $(AFL_CLANG_FAST) ../afl-llvm-pass.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o
 else
-  PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o
+  PROGS      = $(AFL_CLANG_FAST) ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o
 endif
 
 all: test_deps $(PROGS) test_build all_done
@@ -70,15 +82,26 @@ ifndef AFL_TRACE_PC
 else
 	@echo "[!] Note: using -fsanitize=trace-pc mode (this will fail with older LLVM)."
 endif
+ifdef USE_RUST
+	@echo "[*] Checking for working '$(CARGO)'..."
+	@which $(CARGO) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CARGO)'. Make sure that it's in your \$$PATH."; exit 1 )
+endif
 	@echo "[*] Checking for working '$(CC)'..."
 	@which $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
 	@echo "[*] Checking for '../afl-showmap'..."
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
 
-../afl-clang-fast: afl-clang-fast.c | test_deps
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+ifdef USE_RUST
+$(AFL_CLANG_FAST):
+	cd afl-clang-fast-rust && $(CARGO) build --release --features="$(RUST_FEATURES)" && cd ..
+	@cp -f afl-clang-fast-rust/target/release/afl-clang-fast-rust ../afl-clang-fast
 	ln -sf afl-clang-fast ../afl-clang-fast++
+else
+$(AFL_CLANG_FAST): afl-clang-fast.c | test_deps
+	$(CC) $(CFLAGS) $< -o $(AFL_CLANG_FAST) $(LDFLAGS)
+	ln -sf afl-clang-fast ../afl-clang-fast++
+endif
 
 ../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
 	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
@@ -113,3 +136,4 @@ all_done: test_build
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 
 	rm -f $(PROGS) ../afl-clang-fast++
+	rm -rf afl-clang-fast-rust/target

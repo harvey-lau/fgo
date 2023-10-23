@@ -262,7 +262,7 @@ bool AFLCoverage::runOnModule(Module &M)
   {
 
     if (is_aflgo || is_aflgo_preprocessing)
-      SAYF(cCYA "aflgo-llvm-pass (yeah!) " cBRI VERSION cRST " (%s mode)\n",
+      SAYF(cCYA "fgo-llvm-pass (yeah!) " cBRI VERSION cRST " (%s mode)\n",
            (is_aflgo_preprocessing ? "preprocessing" : "distance instrumentation"));
     else
       SAYF(cCYA "afl-llvm-pass " cBRI VERSION cRST " by <lszekeres@google.com>\n");

@@ -1,4 +1,3 @@
-0-dft
 afl-analyze
 afl-as
 afl-clang
@@ -16,16 +15,7 @@ as
 *.o
 *.so
 
-## VS Code
 .vscode
-
-## Mac OS
 .DS_Store
 
-## ninja
-*.ninja
-.ninja*
-
-## cmake
-*.cmake
-CMakeCache.txt
+llvm_mode/**/target
