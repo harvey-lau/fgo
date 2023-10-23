@@ -5590,12 +5590,12 @@ static u8 fuzz_one(char **argv)
    * SIMPLE BITFLIP (+dictionary construction) *
    *********************************************/
 
-#define FLIP_BIT(_ar, _b)                   \
-  do                                        \
-  {                                         \
-    u8 *_arf = (u8 *)(_ar);                 \
-    u32 _bf = (_b);                         \
-    _arf[(_bf) >> 3] ^= (128 >> ((_bf)&7)); \
+#define FLIP_BIT(_ar, _b)                     \
+  do                                          \
+  {                                           \
+    u8 *_arf = (u8 *)(_ar);                   \
+    u32 _bf = (_b);                           \
+    _arf[(_bf) >> 3] ^= (128 >> ((_bf) & 7)); \
   } while (0)
 
   /* Single walking bit. */
@@ -8454,7 +8454,7 @@ int main(int argc, char **argv)
       }
 
       // FGo: preparation time limit
-      if (fgo_pre_time < 5 * 60 * 1000ull) // FGo: Debug: change pre time limit 5 * 60 * 1000ull
+      if (fgo_pre_time < 5 * 1000ull) // FGo: Debug: change pre time limit 5 * 60 * 1000ull
         FATAL("Dangerously low value of -e");
 
       fgo_pre_flag = 1;
