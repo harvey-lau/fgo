@@ -99,7 +99,7 @@ $(AFL_CLANG_FAST):
 	ln -sf afl-clang-fast ../afl-clang-fast++
 else
 $(AFL_CLANG_FAST): afl-clang-fast.c | test_deps
-	$(CC) $(CFLAGS) $< -o $(AFL_CLANG_FAST) $(LDFLAGS)
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-clang-fast ../afl-clang-fast++
 endif
 

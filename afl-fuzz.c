@@ -8414,7 +8414,7 @@ int main(int argc, char **argv)
   struct timeval tv;
   struct timezone tz;
 
-  SAYF(cCYA "aflgo (yeah!) " cBRI VERSION cRST "\n");
+  SAYF(cCYA "fgo (yeah!) " cBRI VERSION cRST "\n");
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -8738,6 +8738,13 @@ int main(int argc, char **argv)
                                         : cooling_schedule == SAN_QUAD  ? "QUAD"
                                                                         : "???",
       t_x);
+
+  u64 fgo_pre_secs = fgo_pre_time / 1000ull;
+  u64 fgo_pre_hours = fgo_pre_secs / 3600ull;
+  u32 fgo_pre_minutes = (fgo_pre_secs % 3600ull) / 60ull;
+  u32 fgo_pre_seconds = (fgo_pre_secs % 3600ull) % 60ull;
+  OKF("FGo: preparation time is equal to " cBRI "%llu:%.2u:%.2u" cRST " (hh:mm:ss)", fgo_pre_hours, fgo_pre_minutes, fgo_pre_seconds);
+  OKF("FGo: cut-the-loss probability is equal to " cBRI "%llu%%" cRST "", fgo_term_prob);
 
   setup_signal_handlers();
   check_asan_opts();
