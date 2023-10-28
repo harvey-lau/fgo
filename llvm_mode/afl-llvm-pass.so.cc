@@ -308,6 +308,7 @@ bool AFLCoverage::runOnModule(Module &M)
   if (is_aflgo_preprocessing)
   {
 
+    std::ofstream bbtargets_new(OutDirectory + "/BBtargets-new.txt", std::ofstream::out | std::ofstream::app);
     std::ofstream bbnames(OutDirectory + "/BBnames.txt", std::ofstream::out | std::ofstream::app);
     std::ofstream bbcalls(OutDirectory + "/BBcalls.txt", std::ofstream::out | std::ofstream::app);
     std::ofstream fnames(OutDirectory + "/Fnames.txt", std::ofstream::out | std::ofstream::app);
@@ -372,7 +373,11 @@ bool AFLCoverage::runOnModule(Module &M)
               unsigned int target_line = atoi(target.substr(pos + 1).c_str());
 
               if (!target_file.compare(filename) && target_line == line)
+              {
                 is_target = true;
+                if (!bb_name.empty())
+                  bbtargets_new << bb_name << "\n";
+              }
             }
           }
 
