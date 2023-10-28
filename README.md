@@ -108,7 +108,7 @@ cd ~/obj-fgo/min1/obj-fgo
 ```
 
 ## Addition
-### Options From Env
+<!-- ### Options From Env
 This commit added some options to the AFL compiler `afl-clang-fast` and it was written by a memory-safe programming language Rust.
 * You can set environment variable `AFLGO_PARAMS_CHECK` in order to check duplicate AFLGo specified argument options including `-targets`, `-outdir` and `-distance`.
 * What's more, you can set up the AFLGo specified options in environment variables `AFLGO_TARGETS_FILE`, `AFLGO_OUTDIR` and `AFLGO_DISTANCE_FILE`. The AFLGo specified options in environment variables have the highest priority.
@@ -117,7 +117,7 @@ This commit added some options to the AFL compiler `afl-clang-fast` and it was w
 The reason for these changes is that some projects may ignore the `CFLAGS` or `CXXFLAGS` from the environment variables and the previous compiler program was written in C which had some memory safety issues.
 
 #### Build
-Under the [`llvm_mode`](./llvm_mode/) directory, run `make USE_RUST=1` to build the compiler program of Rust version.
+Under the [`llvm_mode`](./llvm_mode/) directory, run `make USE_RUST=1` to build the compiler program of Rust version. -->
 
 ### Target Basic Block
-In [`distance.py`](./scripts/distance.py), if the handled basic block is the same with one of the target basic blocks, the script relies on the accurate location of the target basic block to calculate the distance. However, some locations of target basic blocks are not the same with the location information from LLVM. This is because LLVM usually uses the starting line of a basic block to represent the basic block but users of AFLGo often use a row in the middle of the basic block as the location of the target basic block. Therefore, this version updates the target basic block location using the same basic block locations as the basic blocks processed by LLVM.
+In [`distance.py`](./distance/distance_calculator/distance.py), if the handled basic block is the same with one of the target basic blocks, the script relies on the accurate location of the target basic block to calculate the distance. However, some locations of target basic blocks are not the same with the location information from LLVM. This is because LLVM usually uses the starting line of a basic block to represent the basic block but users of AFLGo often use a row in the middle of the basic block as the location of the target basic block. Therefore, this version updates the target basic block location using the same basic block locations as the basic blocks processed by LLVM.

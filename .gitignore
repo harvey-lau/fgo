@@ -1,21 +1,47 @@
+# Binaries produced by "make".
 afl-analyze
 afl-as
 afl-clang
 afl-clang++
-afl-clang-fast
-afl-clang-fast++
 afl-fuzz
 afl-g++
 afl-gcc
 afl-gotcpu
 afl-showmap
-afl-llvm-pass.so
 afl-tmin
 as
-*.o
-*.so
 
+# Binaries produced by "make -C llvm_mode"
+afl-clang-fast
+afl-clang-fast++
+afl-llvm-pass.so
+afl-llvm-rt-32.o
+afl-llvm-rt-64.o
+afl-llvm-rt.o
+
+# Binaries in instrument
+aflgo-clang
+aflgo-clang++
+afl-clang-fast
+afl-clang-fast++
+aflgo-pass.so
+aflgo-runtime-32.o
+aflgo-runtime-64.o
+aflgo-runtime.o
+instrument/llvm_tools
+
+# Binaries in afl
+afl-cmin
+afl-plot
+afl-whatsup
+Android.bp
+!afl-2.57b/Android.bp
+!afl-2.57b/afl-whatsup
+!afl-2.57b/afl-plot
+!afl-2.57b/afl-cmin
+
+# VS Code
 .vscode
-.DS_Store
 
-llvm_mode/**/target
+# MacOS
+.DS_Store
