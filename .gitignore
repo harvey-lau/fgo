@@ -1,21 +1,7 @@
-afl-analyze
-afl-as
-afl-clang
-afl-clang++
-afl-clang-fast
-afl-clang-fast++
-afl-fuzz
-afl-g++
-afl-gcc
-afl-gotcpu
-afl-showmap
-afl-llvm-pass.so
-afl-tmin
-as
-*.o
-*.so
+####
+
+/*.zip
 
 .vscode
-.DS_Store
 
-llvm_mode/**/target
+.DS_Store

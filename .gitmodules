@@ -1,0 +1,12 @@
+[submodule "Dependency/SVF"]
+	path = Dependency/SVF
+	url = https://github.com/SVF-tools/SVF.git
+	branch = master
+[submodule "Dependency/jsoncpp"]
+	path = Dependency/jsoncpp
+	url = https://github.com/open-source-parsers/jsoncpp.git
+	branch = master
+[submodule "Dependency/indicators"]
+	path = Dependency/indicators
+	url = https://github.com/p-ranav/indicators.git
+	branch = master

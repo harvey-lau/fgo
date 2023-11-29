@@ -1,0 +1,14 @@
+###
+
+.vscode
+Release-build
+Debug-build
+build
+out
+
+*.dot
+*.bc
+*.json
+env*.sh
+test.*
+targets*

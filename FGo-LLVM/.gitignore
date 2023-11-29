@@ -1,0 +1,12 @@
+###
+
+fgo-clang
+fgo-clang++
+*.bac*
+*.so
+*.o
+*.log
+test.*
+test/instr
+test/*.bc
+test/*.txt
