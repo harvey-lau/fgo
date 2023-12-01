@@ -7,7 +7,7 @@
 #define JY_ANALYOPTIONS_H_
 
 #include "AnalyUtils.h"
-#include "FGoUtils.hpp"
+#include "FGoDefs.h"
 
 namespace FGo
 {
@@ -15,6 +15,7 @@ namespace Analy
 {
 class Options
 {
+
 private:
     const String RAW_CG_NAME = "callgraph.raw";
     const String OPT_CG_NAME = "callgraph.opt";
@@ -63,11 +64,7 @@ public:
     bool m_isDumpBBDist;       // Whether dump distances for basic blocks
     bool m_isDumpFinalDist;    // Whether dump final distances for basic blocks
 
-    Options() :
-        m_isDumpSVFStats(false), m_isDumpCG(false), m_isDumpICFG(false),
-        m_isDumpCallDist(false), m_isDumpBlockPreDist(false), m_isDumpBlockDist(false),
-        m_isDumpBBDist(false), m_isDumpFinalDist(true)
-    {}
+    Options();
 
     /// @brief Parse arguments from command line
     /// @param argc

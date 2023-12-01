@@ -101,7 +101,7 @@ else
     download_package "$llvm11_libcxx_url" "$llvm11_libcxx_file"
     download_package "$llvm11_libcxxabi_url" "$llvm11_libcxxabi_file"
 
-    echo "Uncompressing sourc code packages..."
+    echo "Uncompressing source code packages..."
     uncompress_package "$llvm11_llvm_file" "$llvm11_dir"
     uncompress_package "$llvm11_clang_file" "$llvm11_dir"
     uncompress_package "$llvm11_compiler_file" "$llvm11_dir"
@@ -151,4 +151,3 @@ fi
 
 echo
 echo "Now, you can build the dependencies!"
-## /usr/bin/g++  -DGTEST_HAS_RTTI=0 -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -Itools/gold -I/root/build/llvm_tools/llvm-11.0.0.src/tools/gold -Iinclude -I/root/build/llvm_tools/llvm-11.0.0.src/include -fPIC -fvisibility-inlines-hidden -Werror=date-time -Wall -Wextra -Wno-unused-parameter -Wwrite-strings -Wcast-qual -Wno-missing-field-initializers -pedantic -Wno-long-long -Wimplicit-fallthrough -Wno-maybe-uninitialized -Wno-class-memaccess -Wno-redundant-move -Wno-noexcept-type -Wdelete-non-virtual-dtor -Wno-comment -fdiagnostics-color -ffunction-sections -fdata-sections -O3 -DNDEBUG -fPIC    -fno-exceptions -fno-rtti -std=c++14 -MD -MT tools/gold/CMakeFiles/LLVMgold.dir/gold-plugin.cpp.o -MF tools/gold/CMakeFiles/LLVMgold.dir/gold-plugin.cpp.o.d -o tools/gold/CMakeFiles/LLVMgold.dir/gold-plugin.cpp.o -c /root/build/llvm_tools/llvm-11.0.0.src/tools/gold/gold-plugin.cpp

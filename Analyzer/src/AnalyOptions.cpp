@@ -5,6 +5,7 @@
 
 #include "AnalyOptions.h"
 
+#include "FGoUtils.hpp"
 #include "SVF-LLVM/LLVMUtil.h"
 #include "Util/ExtAPI.h"
 
@@ -23,12 +24,25 @@ namespace Analy
 //     }
 // }
 
+Options::Options()
+{
+    m_isDumpSVFStats = false;
+    m_isDumpCG = false;
+    m_isDumpICFG = false;
+    m_isDumpCallDist = false;
+    m_isDumpBlockPreDist = false;
+    m_isDumpBlockDist = false;
+    m_isDumpBBDist = false;
+    m_isDumpFinalDist = true;
+}
+
 void Options::printUsage(const String &binaryName)
 {
+
     std::cout
         << "Analyze LLVM bitcode file via SVF and calculate distances for function calls, "
            "blocks and basic blocks in ICFG.\nOnly output final distances for basic blocks by "
-           "default.\n\n"
+           "default.\n\n "
         << "Usage: " << binaryName
         << " -b BITCODE_FILE [BITCODE_FILE1...] | BINARY_FILE -t TARGET_FILE [-o OUPUT_DIR] "
            "[-r PROJ_ROOT_DIR] [-e EXT_DIR] [--svf] [--cg] [--icfg] [--calldist] "
@@ -36,7 +50,7 @@ void Options::printUsage(const String &binaryName)
         << "Options:\n"
         << "  -b, --bitcode   The bitcode file(s) or the program binary file\n"
         << "  -t, --target    The file containing targets\n"
-        << "  -o, --ouput     The output directory, the default is the current working "
+        << "  -o, --output     The output directory, the default is the current working "
            "directory\n"
         << "  -r, --rootdir   The root directory of the project, the default is from env '"
         << PROJ_ROOT_DIR_ENV << "'\n"
@@ -75,14 +89,12 @@ void Options::parseArguments(int argc, char **argv)
 
     int index = 1;
     while (index < arg_num) {
-        if (strncmp(arg_value[index], "-h", 2) == 0 ||
-            strncmp(arg_value[index], "--help", 6) == 0)
-        {
+        if (strcmp(arg_value[index], "-h") == 0 || strcmp(arg_value[index], "--help") == 0) {
             FGo::AbortOnError(argc == 2, "Redundant arguments along with the helper option");
             printUsage(arg_value[0]);
             exit(0);
         }
-        else if (strncmp(arg_value[index], "-b", 2) == 0 || strncmp(arg_value[index], "--bitcode", 9) == 0)
+        else if (strcmp(arg_value[index], "-b") == 0 || strcmp(arg_value[index], "--bitcode") == 0)
         {
             ++index;
             FGo::AbortOnError(index < arg_num, "No specified bitcode file or binary file");
@@ -129,7 +141,7 @@ void Options::parseArguments(int argc, char **argv)
             }
             FGo::AbortOnError(!m_moduleNames.empty(), "No specified bitcode file");
         }
-        else if (strncmp(arg_value[index], "-o", 2) == 0 || strncmp(arg_value[index], "--output", 8) == 0)
+        else if (strcmp(arg_value[index], "-o") == 0 || strcmp(arg_value[index], "--output") == 0)
         {
             ++index;
             FGo::AbortOnError(index < arg_num, "No specified output directory");
@@ -140,7 +152,7 @@ void Options::parseArguments(int argc, char **argv)
             );
             m_outDirectory = arg_value[index];
         }
-        else if (strncmp(arg_value[index], "-t", 2) == 0 || strncmp(arg_value[index], "--target", 8) == 0)
+        else if (strcmp(arg_value[index], "-t") == 0 || strcmp(arg_value[index], "--target") == 0)
         {
             ++index;
             FGo::AbortOnError(index < arg_num, "No specified target file");
@@ -150,7 +162,7 @@ void Options::parseArguments(int argc, char **argv)
             );
             m_targetFile = arg_value[index];
         }
-        else if (strncmp(arg_value[index], "-r", 2) == 0 || strncmp(arg_value[index], "--rootdir", 9) == 0)
+        else if (strcmp(arg_value[index], "-r") == 0 || strcmp(arg_value[index], "--rootdir") == 0)
         {
             ++index;
             FGo::AbortOnError(index < arg_num, "No specified project root directory");
@@ -161,7 +173,7 @@ void Options::parseArguments(int argc, char **argv)
             );
             m_projRootDir = arg_value[index];
         }
-        else if (strncmp(arg_value[index], "-e", 2) == 0 || strncmp(arg_value[index], "--extdir", 8) == 0)
+        else if (strcmp(arg_value[index], "-e") == 0 || strcmp(arg_value[index], "--extdir") == 0)
         {
             ++index;
             FGo::AbortOnError(index < arg_num, "No specified output directory");
@@ -172,28 +184,28 @@ void Options::parseArguments(int argc, char **argv)
             );
             m_extDirectory = arg_value[index];
         }
-        else if (strncmp(arg_value[index], "--svf", 5) == 0) {
+        else if (strcmp(arg_value[index], "--svf") == 0) {
             m_isDumpSVFStats = true;
         }
-        else if (strncmp(arg_value[index], "--cg", 4) == 0) {
+        else if (strcmp(arg_value[index], "--cg") == 0) {
             m_isDumpCG = true;
         }
-        else if (strncmp(arg_value[index], "--icfg", 6) == 0) {
+        else if (strcmp(arg_value[index], "--icfg") == 0) {
             m_isDumpICFG = true;
         }
-        else if (strncmp(arg_value[index], "--calldist", 10) == 0) {
+        else if (strcmp(arg_value[index], "--calldist") == 0) {
             m_isDumpCallDist = true;
         }
-        else if (strncmp(arg_value[index], "--blockpredist", 14) == 0) {
+        else if (strcmp(arg_value[index], "--blockpredist") == 0) {
             m_isDumpBlockPreDist = true;
         }
-        else if (strncmp(arg_value[index], "--blockdist", 11) == 0) {
+        else if (strcmp(arg_value[index], "--blockdist") == 0) {
             m_isDumpBlockDist = true;
         }
-        else if (strncmp(arg_value[index], "--bbdist", 8) == 0) {
+        else if (strcmp(arg_value[index], "--bbdist") == 0) {
             m_isDumpBBDist = true;
         }
-        else if (strncmp(arg_value[index], "--nonfinal", 10) == 0) {
+        else if (strcmp(arg_value[index], "--nonfinal") == 0) {
             m_isDumpFinalDist = false;
         }
         else {

@@ -57,12 +57,6 @@ namespace FGo
         std::cerr << termcolor::bold << termcolor::bright_green << highlight << termcolor::reset << " " << msg << std::endl;
     }
 
-// inline void saySome(const std::string &highlight, const std::string &msg)
-// {
-//     std::cout << termcolor::bright_cyan << highlight << termcolor::reset << " " << msg
-//               << std::endl;
-// }
-
 /// Abort when some errors occur. Output error information to standard error output with the
 /// debug location defined by some [standard predefined
 /// macros](https://gcc.gnu.org/onlinedocs/cpp/Standard-Predefined-Macros.html).
@@ -78,15 +72,6 @@ namespace FGo
 
 /// Highlight some hints when succeeding in performing a task
 #define SucceedSome(highlight, msg) succeedSome(highlight, msg)
-
-    // #define SaySome(highlight, msg) saySome(highlight, msg)
-
-#define PROJ_ROOT_ENVAR "FGO_PROJ_ROOT_DIR"
-#define DIST_DIR_ENVAR "FGO_DIST_DIR"
-#define LLVM_OPT_DISTDIR_NAME "distdir"
-#define LLVM_OPT_PROJROOT_NAME "projroot"
-#define COMPILER_HINT "FGo LLVM Pass"
-#define FINAL_DISTANCE_FILENAME "bb.distance.final"
 
 } // namespace FGo
 

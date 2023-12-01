@@ -8,6 +8,7 @@
 
 #include "../AFL-Fuzz/config.h"
 #include "../AFL-Fuzz/types.h"
+#include "../Utility/FGoDefs.h"
 #include "../Utility/FGoUtils.hpp"
 
 #include "llvm/ADT/Statistic.h"

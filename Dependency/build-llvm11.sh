@@ -75,3 +75,6 @@ if [ ! -f "$clang_binary" ] || [ ! -f "$clangpp_binary" ]; then
 fi
 
 popd >/dev/null
+
+echo
+echo "Now, you can move to the next stage!"
