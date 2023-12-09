@@ -40,6 +40,8 @@ fi
 export PATH=$LLVM_DIR/bin:$PATH
 build_dir="${build_type}-build"
 
+rm -rf "$build_dir"
+
 cmake -D CMAKE_BUILD_TYPE:STRING="${build_type}" \
     -DBUILD_SHARED_LIBS=off                      \
     -B "${build_dir}"

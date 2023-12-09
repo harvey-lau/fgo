@@ -32,8 +32,8 @@ Options::Options()
     m_isDumpCallDist = false;
     m_isDumpBlockPreDist = false;
     m_isDumpBlockDist = false;
-    m_isDumpBBDist = false;
-    m_isDumpFinalDist = true;
+    m_isDumpBBDist = true;
+    m_isUsingDistrib = false;
 }
 
 void Options::printUsage(const String &binaryName)
@@ -46,7 +46,7 @@ void Options::printUsage(const String &binaryName)
         << "Usage: " << binaryName
         << " -b BITCODE_FILE [BITCODE_FILE1...] | BINARY_FILE -t TARGET_FILE [-o OUPUT_DIR] "
            "[-r PROJ_ROOT_DIR] [-e EXT_DIR] [--svf] [--cg] [--icfg] [--calldist] "
-           "[--blockpredist] [--blockdist] [--bbdist] [--nonfinal] \n\n"
+           "[--blockpredist] [--blockdist] [--bbdist] [--nonfinal] [--distrib] \n\n"
         << "Options:\n"
         << "  -b, --bitcode   The bitcode file(s) or the program binary file\n"
         << "  -t, --target    The file containing targets\n"
@@ -62,8 +62,8 @@ void Options::printUsage(const String &binaryName)
         << "  --calldist      Dump the distances for function calls in ICFG\n"
         << "  --blockpredist  Dump the pre-completion distances for blocks in ICFG\n"
         << "  --blockdist     Dump the distances for blocks in ICFG\n"
-        << "  --bbdist        Dump the distances for basic blocks\n"
-        << "  --nonfinal      Never dump the final distances for basic blocks" << std::endl;
+        << "  --nondist       Never dump the distances for basic blocks\n"
+        << "  --distrib       Use the estimation of probabilistic distribution" << std::endl;
 }
 
 void Options::parseArguments(int argc, char **argv)
@@ -84,8 +84,8 @@ void Options::parseArguments(int argc, char **argv)
     m_isDumpCallDist = false;
     m_isDumpBlockPreDist = false;
     m_isDumpBlockDist = false;
-    m_isDumpBBDist = false;
-    m_isDumpFinalDist = true;
+    m_isDumpBBDist = true;
+    m_isUsingDistrib = false;
 
     int index = 1;
     while (index < arg_num) {
@@ -202,11 +202,11 @@ void Options::parseArguments(int argc, char **argv)
         else if (strcmp(arg_value[index], "--blockdist") == 0) {
             m_isDumpBlockDist = true;
         }
-        else if (strcmp(arg_value[index], "--bbdist") == 0) {
-            m_isDumpBBDist = true;
+        else if (strcmp(arg_value[index], "--nondist") == 0) {
+            m_isDumpBBDist = false;
         }
-        else if (strcmp(arg_value[index], "--nonfinal") == 0) {
-            m_isDumpFinalDist = false;
+        else if (strcmp(arg_value[index], "--distrib") == 0) {
+            m_isUsingDistrib = true;
         }
         else {
             FGo::AbortOnError(
@@ -228,6 +228,7 @@ void Options::parseArguments(int argc, char **argv)
     m_blockPseudoDistFile = joinPath(m_outDirectory, BT_BLOCK_DIST_NAME);
     m_bbDFDistFile = joinPath(m_outDirectory, DF_BB_DIST_NAME);
     m_bbBTDistFile = joinPath(m_outDirectory, BT_BB_DIST_NAME);
+    m_targetFuzzingInfoFile = joinPath(m_outDirectory, TARGET_INFO_NAME);
     m_bbFinalDistFile = joinPath(m_outDirectory, FINAL_BB_DIST_NAME);
 
     // Check project root directory
@@ -267,9 +268,7 @@ void Options::parseArguments(int argc, char **argv)
 
     // Check target file
     if (m_targetFile.empty()) {
-        if (m_isDumpCallDist || m_isDumpBlockPreDist || m_isDumpBlockDist || m_isDumpBBDist ||
-            m_isDumpFinalDist)
-        {
+        if (m_isDumpCallDist || m_isDumpBlockPreDist || m_isDumpBlockDist || m_isDumpBBDist) {
             FGo::AbortOnError(false, "No target file specified");
         }
     }
@@ -283,7 +282,7 @@ void Options::parseArguments(int argc, char **argv)
     // Check utility
     FGo::AbortOnError(
         m_isDumpSVFStats || m_isDumpCG || m_isDumpICFG || m_isDumpCallDist ||
-            m_isDumpBlockPreDist || m_isDumpBlockDist || m_isDumpBBDist || m_isDumpFinalDist,
+            m_isDumpBlockPreDist || m_isDumpBlockDist || m_isDumpBBDist,
         "Nothing to do!"
     );
 }

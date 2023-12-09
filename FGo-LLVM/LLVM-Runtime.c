@@ -14,6 +14,7 @@
 
 #include "../AFL-Fuzz/config.h"
 #include "../AFL-Fuzz/types.h"
+#include "../Utility/FGoDefs.h"
 
 #include <assert.h>
 #include <signal.h>
@@ -69,7 +70,7 @@
    is used for instrumentation output before __afl_map_shm() has a chance to run.
    It will end up as .comm, so it shouldn't be too wasteful. */
 
-u8 __afl_area_initial[MAP_SIZE + 16];
+u8 __afl_area_initial[MAP_SIZE + FGO_TARGET_MAX_COUNT * 40];
 u8 *__afl_area_ptr = __afl_area_initial;
 
 __thread u32 __afl_prev_loc;

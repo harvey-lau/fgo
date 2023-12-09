@@ -14,48 +14,49 @@
 namespace FGo
 {
 
-    /// @brief Abort when the `_flag` is false and output `_msg` to standard error.
-    /// @param _flag
-    /// @param _msg
-    inline void abortOnError(
-        bool _flag, const std::string &_msg, const char *funcName, const char *fileName, int line)
-    {
-        if (!_flag)
-        {
-            std::cerr << termcolor::bold << termcolor::bright_red
-                      << "[x] ABORT: " << termcolor::white << _msg << termcolor::reset << "\n";
-            std::cerr << termcolor::bold << termcolor::white
-                      << "     Location: " << termcolor::reset << funcName << "(), " << fileName
-                      << ":" << line << termcolor::reset << "\n";
-            std::cerr << std::endl;
-            exit(1);
-        }
+/// @brief Abort when the `_flag` is false and output `_msg` to standard error.
+/// @param _flag
+/// @param _msg
+inline void abortOnError(
+    bool _flag, const std::string &_msg, const char *funcName, const char *fileName, int line
+)
+{
+    if (!_flag) {
+        std::cerr << termcolor::bold << termcolor::bright_red
+                  << "[x] ABORT: " << termcolor::white << _msg << termcolor::reset << "\n";
+        std::cerr << termcolor::bold << termcolor::white
+                  << "     Location: " << termcolor::reset << funcName << "(), " << fileName
+                  << ":" << line << termcolor::reset << "\n";
+        std::cerr << std::endl;
+        exit(1);
     }
+}
 
-    inline void warnOnError(
-        bool _flag, const std::string &_msg, const char *funcName, const char *fileName, int line)
-    {
-        if (!_flag)
-        {
-            std::cerr << termcolor::bold << termcolor::bright_yellow
-                      << "[!] WARNING: " << termcolor::white << _msg << termcolor::reset << "\n";
-            std::cerr << termcolor::bold << termcolor::white
-                      << "     Location: " << termcolor::reset << funcName << "(), " << fileName
-                      << ":" << line << termcolor::reset << "\n";
-            std::cerr << std::endl;
-        }
+inline void warnOnError(
+    bool _flag, const std::string &_msg, const char *funcName, const char *fileName, int line
+)
+{
+    if (!_flag) {
+        std::cerr << termcolor::bold << termcolor::bright_yellow
+                  << "[!] WARNING: " << termcolor::white << _msg << termcolor::reset << "\n";
+        std::cerr << termcolor::bold << termcolor::white
+                  << "     Location: " << termcolor::reset << funcName << "(), " << fileName
+                  << ":" << line << termcolor::reset << "\n";
+        std::cerr << std::endl;
     }
+}
 
-    inline void highlightSome(const std::string &highlight, const std::string &msg)
-    {
-        std::cerr << termcolor::bold << termcolor::bright_cyan << highlight << termcolor::reset << " " << msg
-                  << std::endl;
-    }
+inline void highlightSome(const std::string &highlight, const std::string &msg)
+{
+    std::cerr << termcolor::bold << termcolor::bright_cyan << highlight << termcolor::reset
+              << " " << msg << std::endl;
+}
 
-    inline void succeedSome(const std::string &highlight, const std::string &msg)
-    {
-        std::cerr << termcolor::bold << termcolor::bright_green << highlight << termcolor::reset << " " << msg << std::endl;
-    }
+inline void succeedSome(const std::string &highlight, const std::string &msg)
+{
+    std::cerr << termcolor::bold << termcolor::bright_green << highlight << termcolor::reset
+              << " " << msg << std::endl;
+}
 
 /// Abort when some errors occur. Output error information to standard error output with the
 /// debug location defined by some [standard predefined

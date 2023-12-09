@@ -8,6 +8,7 @@
 
 #include "Analyzer.h"
 
+#include "AnalyStats.h"
 #include "AnalyThreadPool.h"
 #include "Graphs/SVFG.h"
 #include "SVF-LLVM/LLVMUtil.h"
@@ -16,6 +17,7 @@
 #include "WPA/Andersen.h"
 
 #include "json/json.h"
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -599,6 +601,11 @@ void GraphAnalyzer::loadTargets(const String &targetFile)
 
         ifs.close();
         if (m_targetLocations.empty()) throw AnalyException("No target was found");
+        if (m_targetLocations.size() > MAX_TARGET_COUNT)
+            throw AnalyException(
+                toString(m_targetLocations.size()) + " targets (more than " +
+                toString(MAX_TARGET_COUNT) + ") were found"
+            );
         m_targetCount = m_targetLocations.size();
         m_targetNodes.resize(m_targetCount);
 
@@ -782,7 +789,7 @@ void GraphAnalyzer::subCalculateCalls(const SVF::FunEntryICFGNode *funcEntryNode
     Queue<const SVF::ICFGNode *> workNodeQueue;
     Queue<int32_t> workIntraDistQueue;
     workNodeQueue.push(funcEntryNode);
-    workIntraDistQueue.push(0);
+    workIntraDistQueue.push(1);
     Set<const SVF::ICFGNode *> visitedSet;
     while (!workNodeQueue.empty()) {
         auto bfsCurrentNode = workNodeQueue.front();
@@ -961,7 +968,7 @@ Vector<int32_t> GraphAnalyzer::singleCalculateBlock(const SVF::ICFGNode *node)
     Queue<const SVF::ICFGNode *> workNodeQueue;
     Queue<int32_t> workIntraDistQueue;
     workNodeQueue.push(node);
-    workIntraDistQueue.push(0);
+    workIntraDistQueue.push(1);
     Set<const SVF::ICFGNode *> visitedSet;
     while (!workNodeQueue.empty()) {
         auto bfsCurrentNode = workNodeQueue.front();
@@ -1319,7 +1326,7 @@ void GraphAnalyzer::subCalculateFinalBlocks(const SVF::FunEntryICFGNode *funcEnt
     Queue<const SVF::ICFGNode *> workNodeQueue;
     workNodeQueue.push(funcExitNode);
     Queue<int32_t> workIntraDistQueue;
-    workIntraDistQueue.push(0);
+    workIntraDistQueue.push(1);
     Set<const SVF::ICFGNode *> visitedNodes;
     while (!workNodeQueue.empty()) {
         auto bfsCurrentNode = workNodeQueue.front();
@@ -1450,6 +1457,7 @@ void GraphAnalyzer::calculateBlocksFinalDistInICFG()
     }
 
     m_progressBar.stop();
+
     m_isPseudoDistCalc = true;
 }
 
@@ -1557,14 +1565,16 @@ void GraphAnalyzer::dumpBasicBlockDistance(
 {
     String filePath = outBBDistFile + ".json";
 
-    if (!isPseudo)
-        m_progressBar.start(0, "Writing depth-first distances for basic blocks", true);
-    else m_progressBar.start(0, "Writing backtrace distances for basic blocks", true);
-    m_progressBar.show("Dumping to " + filePath);
-
     Map<SVF::NodeID, Vector<int32_t>> tmpBlockDistMap;
-    if (!isPseudo) tmpBlockDistMap = m_blockDistMap;
-    else tmpBlockDistMap = m_blockPseudoDistMap;
+    if (!isPseudo) {
+        m_progressBar.start(0, "Writing depth-first distances for basic blocks", true);
+        tmpBlockDistMap = m_blockDistMap;
+    }
+    else {
+        m_progressBar.start(0, "Writing backtrace distances for basic blocks", true);
+        tmpBlockDistMap = m_blockPseudoDistMap;
+    }
+    m_progressBar.show("Dumping to " + filePath);
 
     Map<const SVF::SVFBasicBlock *, Vector<int32_t>> BBDistMap;
     for (auto &key_value : tmpBlockDistMap) {
@@ -1597,12 +1607,6 @@ void GraphAnalyzer::dumpBasicBlockDistance(
                 }
             }
             else {
-                // for (Json::Value::ArrayIndex i = 0; i < m_targetCount; ++i)
-                // {
-                //     if (key_value.second[i] >= 0 && (root[simFileName][lineStr][i] < 0 ||
-                //     root[simFileName][lineStr][i] > key_value.second[i]))
-                //         root[simFileName][lineStr][i] = key_value.second[i];
-                // }
                 getLesserVector(root[simFileName][lineStr], key_value.second, m_targetCount);
             }
         }
@@ -1694,6 +1698,109 @@ void GraphAnalyzer::dumpBasicBlockFinalDistance(
                     root[simFileName][lineStr] = finalDistance;
             }
         }
+    }
+
+    std::ofstream ofs(filePath, std::ios::out | std::ios::trunc);
+    if (!ofs.is_open()) throw AnalyException("Failed to open output file " + filePath);
+    Json::StreamWriterBuilder builder;
+    const std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+    writer->write(root, &ofs);
+
+    m_progressBar.stop();
+}
+
+void GraphAnalyzer::dumpFuzzingInfo(const String &outFuzzingInfoFile, bool usingDistrib)
+{
+    /// Calculate frequency of sample data
+    auto calcFrequency = [](const Vector<uint32_t> &data, Vector<long double> &quantile,
+                            uint32_t &start) {
+        auto sortedData = data;
+        std::sort(sortedData.begin(), sortedData.end());
+
+        size_t sum = 0;
+        size_t index = 0;
+        size_t qIndex = 0;
+        quantile.resize(sortedData.back() - sortedData.front() + 1);
+        while (index < sortedData.size()) {
+            auto curNum = sortedData[index];
+            auto curPercent = (long double)sum / (long double)sortedData.size();
+            quantile[qIndex++] = curPercent;
+            while (index < sortedData.size() && curNum == sortedData[index]) {
+                index++;
+                sum++;
+            }
+            if (index < sortedData.size()) {
+                for (uint32_t k = curNum + 1; k < sortedData[index]; ++k)
+                    quantile[qIndex++] = curPercent;
+            }
+        }
+        start = sortedData.front();
+    };
+
+    /// Estimate gamma distribution
+    auto calcDistribution = [](const Vector<uint32_t> &data, Vector<long double> &quantile,
+                               uint32_t &start) {
+        auto sortedData = data;
+        std::sort(sortedData.begin(), sortedData.end());
+
+        GammaDistrib gamma;
+        gamma.estimate(sortedData);
+
+        start = sortedData.front();
+        uint32_t cdfStart = start;
+        uint32_t cdfEnd = sortedData.back();
+        gamma.getCDFQuantile(cdfStart, cdfEnd, quantile);
+    };
+
+    String filePath = outFuzzingInfoFile + ".json";
+
+    m_progressBar.start(0, "Writing the target information for fuzzing", true);
+    m_progressBar.show("Dumping to " + filePath);
+
+    Json::Value root;
+    root["TargetCount"] = m_targetCount;
+    root["TargetInfo"] = Json::Value();
+    root["TargetInfo"].resize(m_targetCount);
+
+    Vector<Vector<uint32_t>> sampleData(m_targetCount, Vector<uint32_t>());
+
+    Map<const SVF::SVFBasicBlock *, Vector<int32_t>> BBDistMap;
+    for (const auto &key_value : m_blockDistMap) {
+        auto node = m_icfg->getICFGNode(key_value.first);
+        auto nodeID = node->getId();
+        auto nodeBB = node->getBB();
+        if (BBDistMap.find(nodeBB) == BBDistMap.end()) {
+            BBDistMap[nodeBB] = key_value.second;
+        }
+        else {
+            getLesserVector(BBDistMap[nodeBB], key_value.second, m_targetCount);
+        }
+    }
+    for (const auto &key_value : BBDistMap) {
+        for (size_t i = 0; i < m_targetCount; ++i) {
+            if (key_value.second[i] >= 0) sampleData[i].push_back(key_value.second[i]);
+        }
+    }
+
+    for (size_t i = 0; i < m_targetCount; ++i) {
+        Vector<long double> probQuantile;
+        uint32_t probStart;
+        Json::Value tmpJsonRoot;
+        if (usingDistrib) {
+            calcDistribution(sampleData[i], probQuantile, probStart);
+            tmpJsonRoot["Method"] = "Estimation";
+        }
+        else {
+            calcFrequency(sampleData[i], probQuantile, probStart);
+            tmpJsonRoot["Method"] = "Frequency";
+        }
+        tmpJsonRoot["Start"] = probStart;
+        tmpJsonRoot["Quantile"] = Json::Value();
+        tmpJsonRoot["Quantile"].resize(probQuantile.size());
+        for (Json::Value::ArrayIndex j = 0; j < probQuantile.size(); ++j) {
+            tmpJsonRoot["Quantile"][j] = (double)probQuantile[j];
+        }
+        root["TargetInfo"][(Json::Value::ArrayIndex)i] = tmpJsonRoot;
     }
 
     std::ofstream ofs(filePath, std::ios::out | std::ios::trunc);

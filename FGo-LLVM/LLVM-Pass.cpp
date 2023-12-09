@@ -125,6 +125,99 @@ bool parseJsonValueFromFile(std::ifstream &inStream, Json::Value &root)
     JSONCPP_STRING errs;
     return Json::parseFromStream(builder, inStream, &root, &errs);
 }
+
+/// @brief Parse json from a file and convert it to an STL unordered map
+/// @param distFile
+/// @param targetCount
+/// @param distMap
+/// @return true if success
+bool parseDistMapFromJsonFile(
+    const std::string distFile, size_t &targetCount,
+    std::unordered_map<std::string, std::unordered_map<unsigned, std::vector<int32_t>>> &distMap
+)
+{
+    Json::Value root;
+    std::ifstream ifs(distFile, std::ios::in);
+    if (!ifs.is_open()) {
+        AbortOnError(false, "Failed to open distance file " + distFile);
+        return false;
+    }
+    if (!parseJsonValueFromFile(ifs, root)) {
+        AbortOnError(false, "Failed to parse json file " + distFile);
+        return false;
+    }
+    ifs.close();
+
+    // Get the BB distances
+    Json::Value::Members members = root.getMemberNames();
+    for (auto iter = members.begin(); iter != members.end(); ++iter) {
+        std::string filename = *iter;
+
+        if (root[filename].type() != Json::objectValue) {
+            AbortOnError(
+                false, "The json file '" + distFile + "' was destroyed. The key '" + filename +
+                           "' is wrong."
+            );
+            return false;
+        }
+        if (distMap.find(filename) == distMap.end()) {
+            distMap[filename] = std::unordered_map<unsigned, std::vector<int32_t>>();
+        }
+
+        Json::Value::Members innerMembers = root[filename].getMemberNames();
+        for (auto i_iter = innerMembers.begin(); i_iter != innerMembers.end(); ++i_iter) {
+            std::string lineStr = *i_iter;
+
+            if (root[filename][lineStr].type() != Json::arrayValue) {
+                AbortOnError(
+                    false, "The json file '" + distFile + "' was destroyed. The key '" +
+                               lineStr + "' in key '" + filename + "' is wrong."
+                );
+                return false;
+            }
+
+            if (targetCount == 0) targetCount = root[filename][lineStr].size();
+            else if (targetCount != root[filename][lineStr].size()) {
+                AbortOnError(
+                    false,
+                    "The json file '" + distFile +
+                        "' was destroyed. The distance array under the key '" + lineStr +
+                        "' under the key '" + filename +
+                        "' is not compatible with the previous arrays whose size is equal to " +
+                        std::to_string(targetCount)
+                );
+                return false;
+            }
+
+            unsigned line = std::stoul(lineStr);
+            if (distMap[filename].find(line) == distMap[filename].end()) {
+                distMap[filename][line] = std::vector<int32_t>(targetCount, -1);
+            }
+
+            for (Json::Value::ArrayIndex i = 0; i < targetCount; i++) {
+                if (root[filename][lineStr][i].type() != Json::intValue) {
+                    AbortOnError(
+                        false, "The json file '" + distFile + "' was destroyed. The " +
+                                   std::to_string(i) + "th value under the key '" + lineStr +
+                                   "' under the key '" + filename + "' is not an integer"
+                    );
+                    return false;
+                }
+                int jsonIndexValue = root[filename][lineStr][i].asInt();
+                if (jsonIndexValue >= 0 && (distMap[filename][line][i] < 0 ||
+                                            distMap[filename][line][i] > jsonIndexValue))
+                    distMap[filename][line][i] = jsonIndexValue;
+            }
+        }
+    }
+
+    return true;
+}
+
+std::string generateUniqueName()
+{
+    return std::to_string(AFL_R(INT32_MAX));
+}
 } // namespace FGo
 
 bool FGoModulePass::runOnModule(Module &M)
@@ -134,7 +227,7 @@ bool FGoModulePass::runOnModule(Module &M)
     // Preprocessing Mode
     if (finalDistanceDir.empty() && !getenv(DIST_DIR_ENVAR)) {
         if (!getenv("AFL_QUIET")) {
-            HighlightSome(COMPILER_HINT, "(Preprocessing Mode - bitcode)");
+            FGo::HighlightSome(COMPILER_HINT, "(Preprocessing Mode - bitcode)");
         }
         return true;
     }
@@ -181,72 +274,54 @@ bool FGoModulePass::runOnModule(Module &M)
 
     // Search depth-dirst distance file and backtrace distance file
     basePath = finalDistanceDir;
-    sys::path::append(basePath, std::string(FINAL_DISTANCE_FILENAME) + ".json");
-    std::string finalDistanceFile = basePath.str().str();
-    if (!sys::fs::exists(finalDistanceFile) || !sys::fs::is_regular_file(finalDistanceFile)) {
-        AbortOnError(false, "The distance file '" + finalDistanceFile + "' doesn't exist");
+    sys::path::append(basePath, std::string(DF_DISTANCE_FILENAME) + ".json");
+    std::string dfDistanceFile = basePath.str().str();
+    if (!sys::fs::exists(dfDistanceFile) || !sys::fs::is_regular_file(dfDistanceFile)) {
+        AbortOnError(false, "The distance file '" + dfDistanceFile + "' doesn't exist");
+        return false;
+    }
+    basePath = finalDistanceDir;
+    sys::path::append(basePath, std::string(BT_DISTANCE_FILENAME) + ".json");
+    std::string btDistanceFile = basePath.str().str();
+    if (!sys::fs::exists(btDistanceFile) || !sys::fs::is_regular_file(btDistanceFile)) {
+        AbortOnError(false, "The distance file '" + btDistanceFile + "' doesn't exist");
         return false;
     }
 
     // Load json value from files
-    std::unordered_map<std::string, std::unordered_map<unsigned, int32_t>> BBDistMap;
+    std::unordered_map<std::string, std::unordered_map<unsigned, std::vector<int32_t>>>
+        dfBBDistMap;
+    std::unordered_map<std::string, std::unordered_map<unsigned, std::vector<int32_t>>>
+        btBBDistMap;
+    size_t targetCount = 0;
     {
-        std::ifstream ifs;
-
-        Json::Value jsonRoot;
-        ifs.open(finalDistanceFile, std::ios::in);
-        if (!ifs.is_open()) {
-            AbortOnError(false, "Failed to open distance file " + finalDistanceFile);
+        // Get the depth-first distances for BB
+        if (!parseDistMapFromJsonFile(dfDistanceFile, targetCount, dfBBDistMap)) return false;
+        if (dfBBDistMap.empty()) {
+            AbortOnError(
+                false, "Failed to find any distance for basic blocks in distance file " +
+                           dfDistanceFile
+            );
             return false;
         }
-        if (!parseJsonValueFromFile(ifs, jsonRoot)) {
-            AbortOnError(false, "Failed to parse json file " + finalDistanceFile);
-            return false;
-        }
-        ifs.close();
 
-        // Get the BB distances
-        Json::Value::Members members = jsonRoot.getMemberNames();
-        for (auto iter = members.begin(); iter != members.end(); ++iter) {
-            if (jsonRoot[*iter].type() != Json::objectValue) {
-                AbortOnError(
-                    false, "The json file '" + finalDistanceFile +
-                               "' was destroyed. The key '" + *iter + "' is wrong."
-                );
-                return false;
-            }
-            Json::Value::Members innerMembers = jsonRoot[*iter].getMemberNames();
-            for (auto i_iter = innerMembers.begin(); i_iter != innerMembers.end(); ++i_iter) {
-                if (jsonRoot[*iter][*i_iter].type() != Json::intValue) {
-                    AbortOnError(
-                        false, "The json file '" + finalDistanceFile +
-                                   "' was destroyed. The key '" + *i_iter + "' in key '" +
-                                   *iter + "' is wrong."
-                    );
-                    return false;
-                }
-                unsigned line = std::stoul(*i_iter);
-                if (BBDistMap.find(*iter) == BBDistMap.end()) {
-                    BBDistMap[*iter] = std::unordered_map<unsigned, int32_t>();
-                }
-
-                // TODO
-                // Scale the raw distances to the instrumentation distances
-                int tmpDistance = jsonRoot[*iter][*i_iter].asInt();
-                if (tmpDistance >= 0) BBDistMap[*iter][line] = tmpDistance * 3;
-            }
-        }
+        // Get the backtrace distances for BB
+        if (!parseDistMapFromJsonFile(btDistanceFile, targetCount, btBBDistMap)) return false;
     }
-    if (BBDistMap.empty()) {
+    if (targetCount == 0) {
+        AbortOnError(false, "The target count is zero");
+        return false;
+    }
+    if (targetCount > FGO_TARGET_MAX_COUNT) {
         AbortOnError(
-            false,
-            "Failed to find any distance for basic blocks in distance file " + finalDistanceFile
+            false, "The target count is greater that 'FGO_TARGET_MAX_COUNT'=" +
+                       std::to_string(FGO_TARGET_MAX_COUNT)
         );
         return false;
     }
 
     if (!getenv("AFL_QUIET")) {
-        HighlightSome(COMPILER_HINT, "(Instrumentation Mode)");
+        FGo::HighlightSome(COMPILER_HINT, "(Instrumentation Mode)");
     }
 
     // =======================
@@ -261,12 +336,25 @@ bool FGoModulePass::runOnModule(Module &M)
 
 #ifdef __x86_64__
     IntegerType *LargestType = Int64Ty;
-    ConstantInt *MapCntLoc = ConstantInt::get(LargestType, MAP_SIZE + 8);
 #else
     IntegerType *LargestType = Int32Ty;
-    ConstantInt *MapCntLoc = ConstantInt::get(LargestType, MAP_SIZE + 4);
 #endif
-    ConstantInt *MapDistLoc = ConstantInt::get(LargestType, MAP_SIZE);
+
+    // [Count for DF] | [DF Dist] | [Count for BT] | [BT Dist]  | [Minimal Dist]
+    // 0------------7 | 8------15 | 16----------23 | 24------31 | 32----------39 (byte)
+
+    std::vector<ConstantInt *> dfMapCntLocations(targetCount, nullptr);
+    std::vector<ConstantInt *> dfMapDistLocations(targetCount, nullptr);
+    std::vector<ConstantInt *> btMapCntLocations(targetCount, nullptr);
+    std::vector<ConstantInt *> btMapDistLocations(targetCount, nullptr);
+    std::vector<ConstantInt *> minMapDistLocations(targetCount, nullptr);
+    for (size_t i = 0; i < targetCount; ++i) {
+        dfMapCntLocations[i] = ConstantInt::get(LargestType, MAP_SIZE + i * 40);
+        dfMapDistLocations[i] = ConstantInt::get(LargestType, MAP_SIZE + i * 40 + 8);
+        btMapCntLocations[i] = ConstantInt::get(LargestType, MAP_SIZE + i * 40 + 16);
+        btMapDistLocations[i] = ConstantInt::get(LargestType, MAP_SIZE + i * 40 + 24);
+        minMapDistLocations[i] = ConstantInt::get(LargestType, MAP_SIZE + i * 40 + 32);
+    }
     ConstantInt *One = ConstantInt::get(LargestType, 1);
 
     // Get globals for the SHM region and the previous location. Note that
@@ -283,7 +371,9 @@ bool FGoModulePass::runOnModule(Module &M)
     for (auto &F : M) {
 
         for (auto &BB : F) {
-            int32_t distance = -2;
+
+            std::vector<int32_t> dfDistance(targetCount, -1);
+            std::vector<int32_t> btDistance(targetCount, -1);
             std::string bbName = "";
 
             // Get the location of this basic block and fetch the distance
@@ -297,20 +387,34 @@ bool FGoModulePass::runOnModule(Module &M)
                     if (filePath.empty() || line == 0) continue;
                     else bbName = filePath + ":" + std::to_string(line);
 
-                    if (BBDistMap.find(filePath) != BBDistMap.end()) {
-                        if (BBDistMap[filePath].find(line) != BBDistMap[filePath].end()) {
-                            distance = BBDistMap[filePath][line];
+                    // Depth-first distance
+                    if (dfBBDistMap.find(filePath) != dfBBDistMap.end()) {
+                        if (dfBBDistMap[filePath].find(line) != dfBBDistMap[filePath].end()) {
+                            dfDistance = dfBBDistMap[filePath][line];
                         }
                     }
-                    else if (BBDistMap.find(fileName) != BBDistMap.end()) {
-                        if (BBDistMap[fileName].find(line) != BBDistMap[fileName].end()) {
-                            distance = BBDistMap[fileName][line];
+                    else if (dfBBDistMap.find(fileName) != dfBBDistMap.end()) {
+                        if (dfBBDistMap[fileName].find(line) != dfBBDistMap[fileName].end()) {
+                            dfDistance = dfBBDistMap[fileName][line];
+                        }
+                    }
+
+                    // Backtrace distance
+                    if (btBBDistMap.find(filePath) != btBBDistMap.end()) {
+                        if (btBBDistMap[filePath].find(line) != btBBDistMap[filePath].end()) {
+                            btDistance = btBBDistMap[filePath][line];
+                        }
+                    }
+                    else if (btBBDistMap.find(fileName) != btBBDistMap.end()) {
+                        if (btBBDistMap[fileName].find(line) != btBBDistMap[fileName].end()) {
+                            btDistance = btBBDistMap[fileName][line];
                         }
                     }
                 }
             }
 
             BasicBlock::iterator IP = BB.getFirstInsertionPt();
+            // if (IP == BB.end()) continue;
             IRBuilder<> IRB(&(*IP));
 
             // Current location
@@ -339,32 +443,79 @@ bool FGoModulePass::runOnModule(Module &M)
                 IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
             Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-            if (distance >= 0) {
-                ConstantInt *Distance = ConstantInt::get(LargestType, (unsigned)distance);
+            {
+                // Increase count at shm
+                auto incrCountAtSHM = [&M, &C, &IRB, &MapPtr, &LargestType,
+                                       &One](ConstantInt *cntLoc) {
+                    // Load value from (`MapPtr`+`distLoc`)
+                    Value *MapCntPtr = IRB.CreateBitCast(
+                        IRB.CreateGEP(MapPtr, cntLoc), LargestType->getPointerTo()
+                    );
+                    LoadInst *MapCnt = IRB.CreateLoad(MapCntPtr);
+                    MapCnt->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-                // Add distance to shm[MAPSIZE]
+                    // Add 1
+                    Value *IncrCnt = IRB.CreateAdd(MapCnt, One);
 
-                Value *MapDistPtr = IRB.CreateBitCast(
-                    IRB.CreateGEP(MapPtr, MapDistLoc), LargestType->getPointerTo()
-                );
-                LoadInst *MapDist = IRB.CreateLoad(MapDistPtr);
-                MapDist->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                    // Store
+                    IRB.CreateStore(IncrCnt, MapCntPtr)
+                        ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                };
 
-                Value *IncrDist = IRB.CreateAdd(MapDist, Distance);
-                IRB.CreateStore(IncrDist, MapDistPtr)
-                    ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                // Add distance to shm
+                auto addDistanceToSHM = [&M, &C, &IRB, &MapPtr, &LargestType](
+                                            ConstantInt *distLoc, unsigned distance
+                                        ) {
+                    ConstantInt *distanceValue = ConstantInt::get(LargestType, distance);
 
-                // Increase count at shm[MAPSIZE + (4 or 8)]
+                    // Load value from (`MapPtr`+`distLoc`)
+                    Value *MapDistPtr = IRB.CreateBitCast(
+                        IRB.CreateGEP(MapPtr, distLoc), LargestType->getPointerTo()
+                    );
+                    LoadInst *MapDist = IRB.CreateLoad(MapDistPtr);
+                    MapDist->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-                Value *MapCntPtr = IRB.CreateBitCast(
-                    IRB.CreateGEP(MapPtr, MapCntLoc), LargestType->getPointerTo()
-                );
-                LoadInst *MapCnt = IRB.CreateLoad(MapCntPtr);
-                MapCnt->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                    // Add distance
+                    Value *IncrDist = IRB.CreateAdd(MapDist, distanceValue);
 
-                Value *IncrCnt = IRB.CreateAdd(MapCnt, One);
-                IRB.CreateStore(IncrCnt, MapCntPtr)
-                    ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                    // Store
+                    IRB.CreateStore(IncrDist, MapDistPtr)
+                        ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                };
+
+                // Update minimal distance
+                auto updateMinimalDist = [&M, &C, &IRB, &MapPtr, &LargestType](
+                                             ConstantInt *distLoc, unsigned distance
+                                         ) {
+                    ConstantInt *distanceValue = ConstantInt::get(LargestType, distance);
+
+                    // Load value from (`MapPtr`+`distLoc`)
+                    Value *MapDistPtr = IRB.CreateBitCast(
+                        IRB.CreateGEP(MapPtr, distLoc), LargestType->getPointerTo()
+                    );
+                    LoadInst *MapDist = IRB.CreateLoad(MapDistPtr);
+                    MapDist->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+                    // Select the lesser one
+                    Value *IsLesser = IRB.CreateICmpSLT(MapDist, distanceValue);
+                    Value *UpdatedValue = IRB.CreateSelect(IsLesser, MapDist, distanceValue);
+
+                    // Store
+                    IRB.CreateStore(UpdatedValue, MapDistPtr)
+                        ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+                };
+
+                for (size_t i = 0; i < targetCount; ++i) {
+                    if (dfDistance[i] >= 0) {
+                        incrCountAtSHM(dfMapCntLocations[i]);
+                        addDistanceToSHM(dfMapDistLocations[i], dfDistance[i]);
+                        updateMinimalDist(minMapDistLocations[i], dfDistance[i]);
+                    }
+                    else if (btDistance[i] >= 0) {
+                        incrCountAtSHM(btMapCntLocations[i]);
+                        addDistanceToSHM(btMapDistLocations[i], btDistance[i]);
+                    }
+                }
             }
             ++instrBBCount;
         }
@@ -385,23 +536,6 @@ bool FGoModulePass::runOnModule(Module &M)
 
     return true;
 }
-
-// static RegisterPass<FGoModulePass> X("FGo-Module-Pass", "FGo Module Pass", false, false);
-
-// extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
-// {
-//     return {LLVM_PLUGIN_API_VERSION, "FGoModulePass", "v1.0", [](PassBuilder &PB) {
-//                 PB.registerPipelineParsingCallback([](StringRef Name, ModulePassManager &MPM,
-//                                                       ArrayRef<PassBuilder::PipelineElement>)
-//                                                       {
-//                     if (Name == "FGo-Module-Pass") {
-//                         MPM.addPass(new FGoModulePass());
-//                         return true;
-//                     }
-//                     return false;
-//                 });
-//             }};
-// }
 
 static void registerFGoPass(const PassManagerBuilder &, legacy::PassManagerBase &PM)
 {

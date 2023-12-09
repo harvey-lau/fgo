@@ -87,6 +87,24 @@ public:
     }
 };
 
+class UnexpectedException : public AnalyException
+{
+public:
+    UnexpectedException(const char *message) : AnalyException(message)
+    {}
+    UnexpectedException(const String &message) : AnalyException(message)
+    {}
+};
+
+class InvalidDataSetException : public AnalyException
+{
+public:
+    InvalidDataSetException(const char *message) : AnalyException(message)
+    {}
+    InvalidDataSetException(const String &message) : AnalyException(message)
+    {}
+};
+
 /// @brief A simple class for progress bar
 class ProgressBar
 {

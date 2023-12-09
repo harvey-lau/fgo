@@ -5,6 +5,7 @@
 
 #include "AnalyOptions.h"
 #include "Analyzer.h"
+#include "FGoUtils.hpp"
 
 #include <iostream>
 
@@ -25,7 +26,7 @@ int main(int argc, char **argv)
         // Check tasks
         if (!options.m_isDumpCG && !options.m_isDumpICFG && !options.m_isDumpCallDist &&
             !options.m_isDumpBlockPreDist && !options.m_isDumpBlockDist &&
-            !options.m_isDumpBBDist && !options.m_isDumpFinalDist)
+            !options.m_isDumpBBDist)
             return 0;
 
         // Analyze graphs
@@ -39,7 +40,7 @@ int main(int argc, char **argv)
 
         // Check atsks
         if (!options.m_isDumpCallDist && !options.m_isDumpBlockPreDist &&
-            !options.m_isDumpBlockDist && !options.m_isDumpBBDist && !options.m_isDumpFinalDist)
+            !options.m_isDumpBlockDist && !options.m_isDumpBBDist)
             return 0;
 
         // Calculate call distances
@@ -49,7 +50,7 @@ int main(int argc, char **argv)
 
         // Check tasks
         if (!options.m_isDumpBlockPreDist && !options.m_isDumpBlockDist &&
-            !options.m_isDumpBBDist && !options.m_isDumpFinalDist)
+            !options.m_isDumpBBDist)
             return 0;
 
         // Calculate block distances
@@ -60,8 +61,7 @@ int main(int argc, char **argv)
             graphAnaly.dumpBlocksDistance(options.m_blockPreDistFile, options.m_projRootDir);
 
         // Check tasks
-        if (!options.m_isDumpBlockDist && !options.m_isDumpBBDist && !options.m_isDumpFinalDist)
-            return 0;
+        if (!options.m_isDumpBlockDist && !options.m_isDumpBBDist) return 0;
 
         // Calculate final distances for blocks
         graphAnaly.calculateBlocksFinalDistInICFG();
@@ -72,6 +72,7 @@ int main(int argc, char **argv)
                 options.m_blockPseudoDistFile, options.m_projRootDir, true
             );
         }
+
         if (options.m_isDumpBBDist) {
             graphAnaly.dumpBasicBlockDistance(
                 options.m_bbDFDistFile, options.m_projRootDir, false
@@ -80,22 +81,23 @@ int main(int argc, char **argv)
                 options.m_bbBTDistFile, options.m_projRootDir, true
             );
         }
-        if (options.m_isDumpFinalDist) {
-            graphAnaly.dumpBasicBlockFinalDistance(
-                options.m_bbFinalDistFile, options.m_projRootDir
-            );
-        }
+
+        graphAnaly.dumpFuzzingInfo(options.m_targetFuzzingInfoFile, options.m_isUsingDistrib);
 
         // Release resources
         svfAnaly.release();
     }
+    catch (const Analy::UnexpectedException &e) {
+        FGo::AbortOnError(false, Analy::String("Unexpected error: ") + e.what());
+    }
+    catch (const Analy::InvalidDataSetException &e) {
+        FGo::AbortOnError(false, Analy::String("Invalid data set: ") + e.what());
+    }
     catch (const Analy::AnalyException &e) {
-        std::cerr << e.what() << std::endl;
-        exit(1);
+        FGo::AbortOnError(false, Analy::String("Analysis error: ") + e.what());
     }
     catch (const std::exception &e) {
-        std::cerr << e.what() << std::endl;
-        exit(1);
+        FGo::AbortOnError(false, Analy::String("System error: ") + e.what());
     }
 
     return 0;

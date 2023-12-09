@@ -25,9 +25,10 @@ private:
     const String PRE_BLOCK_DIST_NAME = "blocks.distance.pre";
     const String DF_BLOCK_DIST_NAME = "blocks.distance.df";
     const String BT_BLOCK_DIST_NAME = "blocks.distance.bt";
-    const String DF_BB_DIST_NAME = "bb.distance.df";
-    const String BT_BB_DIST_NAME = "bb.distance.bt";
+    const String DF_BB_DIST_NAME = DF_DISTANCE_FILENAME;
+    const String BT_BB_DIST_NAME = BT_DISTANCE_FILENAME;
     const String FINAL_BB_DIST_NAME = FINAL_DISTANCE_FILENAME;
+    const String TARGET_INFO_NAME = TARGET_INFO_FILENAME;
     const String EXT_API_FILENAME = "extapi.bc";
 
     const String PROJ_ROOT_DIR_ENV = PROJ_ROOT_ENVAR;
@@ -53,6 +54,8 @@ public:
     String m_bbBTDistFile;        // File conatining backtrace distances for basic blocks
     String m_bbFinalDistFile;     // File containing final distances for basic blocks
 
+    String m_targetFuzzingInfoFile; // File containing target information for fuzzing
+
     String m_projRootDir; // Root directory of the relevant project
 
     bool m_isDumpSVFStats;     // Whether dump SVF statistics
@@ -62,7 +65,7 @@ public:
     bool m_isDumpBlockPreDist; // Whether dump pre-completion distances for blocks
     bool m_isDumpBlockDist;    // Whether dump distances for blocks in ICFG
     bool m_isDumpBBDist;       // Whether dump distances for basic blocks
-    bool m_isDumpFinalDist;    // Whether dump final distances for basic blocks
+    bool m_isUsingDistrib;     // Whether use the estimation of probabilistic distribution
 
     Options();
 

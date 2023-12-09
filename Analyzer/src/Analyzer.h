@@ -10,6 +10,7 @@
 #define JY_ANALYZER_H_
 
 #include "AnalyUtils.h"
+#include "FGoDefs.h"
 #include "Graphs/SVFG.h"
 #include "SVFIR/SVFIR.h"
 #include "SVFIR/SVFModule.h"
@@ -191,13 +192,16 @@ private:
     bool m_icfg_processed;
 
     /// @brief A constant distance for an external function call
-    const int32_t EXTERN_CALL_DIST = 30;
+    const int32_t EXTERN_CALL_DIST = FGO_EXTERNAL_CALL_DIST;
 
     /// @brief A constant distance for a recursive function call
-    const int32_t RECURSIVE_CALL_DIST = 25;
+    const int32_t RECURSIVE_CALL_DIST = FGO_RECURSIVE_CALL_DIST;
 
     /// @brief A constant distance for a block inner a function call
-    const int32_t INNER_CALL_DIST = 20;
+    const int32_t INNER_CALL_DIST = FGO_INNER_CALL_DIST;
+
+    /// @brief Maximal count for targets
+    const size_t MAX_TARGET_COUNT = FGO_TARGET_MAX_COUNT;
 
     Map<String, ElementCountMap> m_callMap;
     Map<String, ElementCountMap> m_indCallMap;
@@ -363,9 +367,20 @@ public:
     /// @brief Dump the final distances for basic blocks
     /// @param outBBDistanceFile
     /// @param projRootDir
+    /// @exception `UnexpectedException`
+    /// @exception `AnalyException`
+    /// @exception `std::exception`
     void dumpBasicBlockFinalDistance(
         const String &outBBDistanceFile, const String &projRootDir
     );
+
+    /// @brief Dump some information for fuzzing
+    /// @param outFuzzingInfoFile
+    /// @exception `UnexpectedException`
+    /// @exception `InvalidDataSetException`
+    /// @exception `AnalyException`
+    /// @exception `std::exception`
+    void dumpFuzzingInfo(const String &outFuzzingInfoFile, bool usingDistrib);
 };
 
 } // namespace Analy

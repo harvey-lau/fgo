@@ -1,0 +1,39 @@
+---
+## https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+Language:        Cpp
+BasedOnStyle:  Microsoft
+AccessModifierOffset: -4
+AlignAfterOpenBracket: BlockIndent
+# AlignConsecutiveAssignments: AcrossComments
+# AlignConsecutiveBitFields: AcrossComments
+# AlignConsecutiveDeclarations: AcrossComments
+AlignConsecutiveMacros: AcrossComments
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCompoundRequirementOnASingleLine: true
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLambdasOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+BraceWrapping:
+    AfterControlStatement: MultiLine
+    AfterExternBlock: false
+    BeforeLambdaBody: false
+    BeforeWhile: false
+    SplitEmptyFunction: false
+    SplitEmptyRecord: false
+    SplitEmptyNamespace: false
+BreakBeforeBraces: Custom
+BreakBeforeConceptDeclarations: Always
+BreakConstructorInitializers: AfterColon
+BreakInheritanceList: AfterColon
+ColumnLimit:     96
+IncludeBlocks: Regroup
+IndentCaseBlocks: false
+IndentCaseLabels: false
+IndentGotoLabels: true
+IndentPPDirectives: BeforeHash
+IndentWidth: 4
+IndentWrappedFunctionNames: true
+NamespaceIndentation: None

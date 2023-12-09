@@ -22,6 +22,9 @@ HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
 
+FUZZING_HELPER_DIR = ../Utility
+FUZZING_HELPER_OBJ = ../Utility/fgo-fuzzing-helper.o
+
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
@@ -71,7 +74,8 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	ln -sf afl-as as
 
 afl-fuzz: afl-fuzz.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+	$(MAKE) -C $(FUZZING_HELPER_DIR) clean_all all
+	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS) $(FUZZING_HELPER_OBJ)
 
 afl-showmap: afl-showmap.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
