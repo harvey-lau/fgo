@@ -1,0 +1,106 @@
+#!/bin/bash
+
+function FATAL() {
+    local msg="$1"
+
+    printf "\x0f"
+    printf "\x1b)B"
+    printf "\x1b[?25h"
+    printf "\x1b[0m" ## Reset
+    printf "\x1b[1;91m" ## Light Red
+    printf "[x] ABORT: "
+    printf "\x1b[1;97m" ## Light White
+    printf -- "$msg"
+    printf "\x1b[0m" ## Reset
+    printf "\n"
+}
+
+function SAY() {
+    local msg="$1"
+
+    printf -- "$msg"
+}
+
+function WARN() {
+    local hint="$1"
+    local msg="$2"
+
+    printf "\x0f"
+    printf "\x1b)B"
+    printf "\x1b[?25h"
+    printf "\x1b[0m" ## Reset
+    printf "\x1b[1;93m" ## 
+    printf -- "$hint"
+    printf "\x1b[1;97m" ## Light White
+    printf -- "$msg"
+    printf "\x1b[0m" ## Reset
+    printf "\n"
+}
+
+function HIGHLIGHT(){
+    local hint="$1"
+    local msg="$2"
+
+    printf "\x0f"
+    printf "\x1b)B"
+    printf "\x1b[?25h"
+    printf "\x1b[0m" ## Reset
+    printf "\x1b[1;96m" ## 
+    printf -- "$hint"
+    printf "\x1b[1;97m" ## Light White
+    printf -- "$msg"
+    printf "\x1b[0m" ## Reset
+    printf "\n"
+}
+
+function HINT_FLAGS() {
+    HIGHLIGHT "CC=" "$CC"
+    HIGHLIGHT "CXX=" "$CXX"
+    HIGHLIGHT "CFLAGS=" "$CFLAGS"
+    HIGHLIGHT "CXXFLAGS=" "$CXXFLAGS"
+    HIGHLIGHT "LDFLAGS=" "$LDFLAGS"
+}
+
+function CHECK_FLAGS() {
+    if [ "$AFL_USE_ASAN" != "" ]; then
+        WARN "AFL_USE_ASAN=" "$AFL_USE_ASAN"
+        WARN "ASAN_OPTIONS=" "$ASAN_OPTIONS"
+    elif [ "$AFL_USE_MSAN" != "" ]; then
+        WARN "AFL_USE_MSAN=" "$AFL_USE_MSAN"
+    fi
+}
+
+export CC=CLANG_WRAPPER_CC
+export CXX=CLANG_WRAPPER_CPP
+
+if [ $# -lt 1 ]; then
+    FATAL "Wrong parameters. Use '-h' or '--help' to check uasge"
+elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    SAY "Usage: source <script> -n | -p | -i\n\n  -n, -N, --native\tUse native clang\n  -p, -P, --preprocess\tUse native clang and opt plugin and gold plugin to generate bitcode files\n  -i, -I, --instrument\tUse clang wrapper to instrument distances\n"
+elif [ "$1" = "-n" ] || [ "$1" = "-N" ] || [ "$1" = "--native" ]; then
+    HIGHLIGHT "Using native clang" ""
+    HINT_FLAGS
+    CHECK_FLAGS
+    export NATIVE_CLANG_ENVAR=1
+elif [ "$1" = "-p" ] || [ "$1" = "-P" ] || [ "$1" = "--preprocess" ]; then
+    HIGHLIGHT "Using native clang" " with 'opt' and 'gold'"
+    export CFLAGS="$CFLAGS -O0 -disable-O0-optnone -flto -fuse-ld=gold -fno-discard-value-names -Wl,-plugin-opt=save-temps"
+    export CXXFLAGS="$CXXFLAGS -O0 -disable-O0-optnone -flto -fuse-ld=gold -fno-discard-value-names -Wl,-plugin-opt=save-temps"
+    HINT_FLAGS
+    CHECK_FLAGS
+    export NATIVE_CLANG_ENVAR=1
+elif [ "$1" = "-i" ] || [ "$1" = "-I" ] || [ "$1" = "--instrument" ]; then
+    HIGHLIGHT "Using clang wrapper" " for instrumentation"
+    if [ $# -gt 2 ]; then
+        export DIST_DIR_ENVAR="$(readlink -f "$2")"
+        export PROJ_ROOT_ENVAR="$(readlink -f "$3")"
+    fi
+    HINT_FLAGS
+    CHECK_FLAGS
+    HIGHLIGHT "DIST_DIR_ENVAR=" "$DIST_DIR_ENVAR"
+    HIGHLIGHT "PROJ_ROOT_ENVAR=" "$PROJ_ROOT_ENVAR"
+    unset NATIVE_CLANG_ENVAR
+else
+    FATAL "Unrecognized argument '$1'"
+fi
+

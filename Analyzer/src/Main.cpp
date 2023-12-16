@@ -16,6 +16,8 @@ int main(int argc, char **argv)
     Analy::Options options;
     options.parseArguments(argc, argv);
 
+    std::cout << options.m_projRootDir << std::endl;
+
     try {
         // Analyze via pointer analysis
         Analy::SVFAnalyzer svfAnaly;
@@ -30,15 +32,16 @@ int main(int argc, char **argv)
             return 0;
 
         // Analyze graphs
-        Analy::GraphAnalyzer graphAnaly =
-            Analy::GraphAnalyzer(svfAnaly.getPTACallGraph(), svfAnaly.getICFG());
+        Analy::GraphAnalyzer graphAnaly = Analy::GraphAnalyzer(
+            svfAnaly.getPTACallGraph(), svfAnaly.getICFG(), options.m_projRootDir
+        );
 
         if (options.m_isDumpCG)
             graphAnaly.dumpPTACallGraph(options.m_rawCGFile, options.m_optCGFile);
         if (options.m_isDumpICFG)
             graphAnaly.dumpICFGWithAnalysis(options.m_rawICFGFile, options.m_optICFGFile);
 
-        // Check atsks
+        // Check tasks
         if (!options.m_isDumpCallDist && !options.m_isDumpBlockPreDist &&
             !options.m_isDumpBlockDist && !options.m_isDumpBBDist)
             return 0;
@@ -58,7 +61,7 @@ int main(int argc, char **argv)
 
         // Dump block distances
         if (options.m_isDumpBlockPreDist)
-            graphAnaly.dumpBlocksDistance(options.m_blockPreDistFile, options.m_projRootDir);
+            graphAnaly.dumpBlocksDistance(options.m_blockPreDistFile);
 
         // Check tasks
         if (!options.m_isDumpBlockDist && !options.m_isDumpBBDist) return 0;
@@ -67,22 +70,18 @@ int main(int argc, char **argv)
         graphAnaly.calculateBlocksFinalDistInICFG();
 
         if (options.m_isDumpBlockDist) {
-            graphAnaly.dumpBlocksDistance(options.m_blockFinalDistFile, options.m_projRootDir);
-            graphAnaly.dumpBlocksDistance(
-                options.m_blockPseudoDistFile, options.m_projRootDir, true
-            );
+            graphAnaly.dumpBlocksDistance(options.m_blockFinalDistFile);
+            graphAnaly.dumpBlocksDistance(options.m_blockPseudoDistFile, true);
         }
 
         if (options.m_isDumpBBDist) {
-            graphAnaly.dumpBasicBlockDistance(
-                options.m_bbDFDistFile, options.m_projRootDir, false
-            );
-            graphAnaly.dumpBasicBlockDistance(
-                options.m_bbBTDistFile, options.m_projRootDir, true
-            );
+            graphAnaly.dumpBasicBlockDistance(options.m_bbDFDistFile, false);
+            graphAnaly.dumpBasicBlockDistance(options.m_bbBTDistFile, true);
         }
 
-        graphAnaly.dumpFuzzingInfo(options.m_targetFuzzingInfoFile, options.m_isUsingDistrib);
+        graphAnaly.dumpTargetFuzzingInfo(
+            options.m_targetFuzzingInfoFile, options.m_isUsingDistrib
+        );
 
         // Release resources
         svfAnaly.release();

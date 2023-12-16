@@ -246,6 +246,10 @@ void Options::parseArguments(int argc, char **argv)
         !m_projRootDir.empty(), "Failed to find the root directory of the project. Please "
                                 "specify it via argument or environment variable."
     );
+    m_projRootDir = realPath(m_projRootDir);
+    FGo::AbortOnError(
+        !m_projRootDir.empty(), "Failed to get the real path of project root directory"
+    );
     if (m_projRootDir.back() == '/') m_projRootDir.pop_back();
 
     // Check ext file

@@ -16,33 +16,9 @@ if [[ "$arch" != "x86_64" ]]; then
 fi
 
 dependency_dir="$(dirname "$(readlink -f "$0")")"
-llvm11_dir="$dependency_dir/llvm-11.0.0.obj"
+
 llvm14_dir="$dependency_dir/llvm-14.0.0.obj"
 z3_dir="$dependency_dir/z3.obj"
-
-llvm11_llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/llvm-11.0.0.src.tar.xz"
-llvm11_clang_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/clang-11.0.0.src.tar.xz"
-llvm11_compiler_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/compiler-rt-11.0.0.src.tar.xz"
-llvm11_libcxx_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/libcxx-11.0.0.src.tar.xz"
-llvm11_libcxxabi_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/libcxxabi-11.0.0.src.tar.xz"
-
-llvm11_llvm_file="$llvm11_dir/llvm-11.0.0.src.tar.xz"
-llvm11_clang_file="$llvm11_dir/clang-11.0.0.src.tar.xz"
-llvm11_compiler_file="$llvm11_dir/compiler-rt-11.0.0.src.tar.xz"
-llvm11_libcxx_file="$llvm11_dir/libcxx-11.0.0.src.tar.xz"
-llvm11_libcxxabi_file="$llvm11_dir/libcxxabi-11.0.0.src.tar.xz"
-
-llvm11_llvm_pre_dir="$llvm11_dir/llvm-11.0.0.src"
-llvm11_clang_pre_dir="$llvm11_dir/clang-11.0.0.src"
-llvm11_compiler_pre_dir="$llvm11_dir/compiler-rt-11.0.0.src"
-llvm11_libcxx_pre_dir="$llvm11_dir/libcxx-11.0.0.src"
-llvm11_libcxxabi_pre_dir="$llvm11_dir/libcxxabi-11.0.0.src"
-
-llvm11_llvm_dir="$llvm11_dir/build/llvm_tools/llvm-11.0.0.src"
-llvm11_clang_dir="$llvm11_dir/build/llvm_tools/llvm-11.0.0.src/tools/clang"
-llvm11_compiler_dir="$llvm11_dir/build/llvm_tools/llvm-11.0.0.src/projects/compiler-rt"
-llvm11_libcxx_dir="$llvm11_dir/build/llvm_tools/llvm-11.0.0.src/projects/libcxx"
-llvm11_libcxxabi_dir="$llvm11_dir/build/llvm_tools/llvm-11.0.0.src/projects/libcxxabi"
 
 llvm14_prebuilt_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
 llvm14_prebuilt_file="$dependency_dir/llvm-14.0.0-prebuilt.tar.xz"
@@ -86,36 +62,6 @@ uncompress_package() {
 
     tar xf "$file" -C "$out_dir"
 }
-
-# LLVM 11.0.0
-if [ -d "$llvm11_clang_dir" ]; then
-    echo "The LLVM 11.0.0 has been downloaded into $llvm11_dir."
-else
-    rm -rf "$llvm11_dir"
-    mkdir "$llvm11_dir"
-
-    echo "Downloading LLVM 11.0.0 source code..."
-    download_package "$llvm11_llvm_url" "$llvm11_llvm_file"
-    download_package "$llvm11_clang_url" "$llvm11_clang_file"
-    download_package "$llvm11_compiler_url" "$llvm11_compiler_file"
-    download_package "$llvm11_libcxx_url" "$llvm11_libcxx_file"
-    download_package "$llvm11_libcxxabi_url" "$llvm11_libcxxabi_file"
-
-    echo "Uncompressing source code packages..."
-    uncompress_package "$llvm11_llvm_file" "$llvm11_dir"
-    uncompress_package "$llvm11_clang_file" "$llvm11_dir"
-    uncompress_package "$llvm11_compiler_file" "$llvm11_dir"
-    uncompress_package "$llvm11_libcxx_file" "$llvm11_dir"
-    uncompress_package "$llvm11_libcxxabi_file" "$llvm11_dir"
-    rm -f "$llvm11_llvm_file" "$llvm11_clang_file" "$llvm11_compiler_file" "$llvm11_libcxx_file" "$llvm11_libcxxabi_file"
-
-    mkdir -p "$llvm11_dir/build/llvm_tools"
-    mv "$llvm11_llvm_pre_dir" "$llvm11_llvm_dir"
-    mv "$llvm11_clang_pre_dir" "$llvm11_clang_dir"
-    mv "$llvm11_compiler_pre_dir" "$llvm11_compiler_dir"
-    mv "$llvm11_libcxx_pre_dir" "$llvm11_libcxx_dir"
-    mv "$llvm11_libcxxabi_pre_dir" "$llvm11_libcxxabi_dir"
-fi
 
 # LLVM 14.0.0
 if [ -d "$llvm14_dir/bin" ]; then

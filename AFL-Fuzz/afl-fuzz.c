@@ -318,10 +318,11 @@ static u32 a_extras_cnt;            /* Total number of tokens available */
 
 #if AFLGO_IMPL
 
-static double cur_distance = -1.0; /* Distance of executed input             */
-static double max_distance = -1.0; /* Maximal distance for any input         */
-static double min_distance = -1.0; /* Minimal distance for any input         */
-static u32 t_x = 10;               /* Time to exploitation (Default: 10 min) */
+// static double cur_distance = -1.0; /* Distance of executed input             */
+// static double max_distance = -1.0; /* Maximal distance for any input         */
+// static double min_distance = -1.0; /* Minimal distance for any input         */
+
+static u32 t_x = 10; /* Time to exploitation (Default: 10 min) */
 
 static double cur_df_distance[FGO_TARGET_MAX_COUNT] = {-1.0};
 static double cur_bt_distance[FGO_TARGET_MAX_COUNT] = {-1.0};
@@ -335,8 +336,8 @@ static target_info_t target_info;
 
 static char *target_info_dir = NULL;
 
-// FGo: Debug
-static FILE *fgo_file_handler = NULL;
+// // FGo: Debug: file handler
+// static FILE *fgo_file_handler = NULL;
 
 #endif // AFLGO_IMPL
 
@@ -1077,7 +1078,7 @@ static inline u8 has_new_bits(u8 *virgin_map)
 
   // FGo
 
-  double tmp_dist = 0.0;
+  // double tmp_dist = 0.0;
   for (u32 i = 0; i < target_info.target_count; ++i)
   {
     u64 *tmp_cur_df_count = (u64 *)(trace_bits + MAP_SIZE + i * 40);
@@ -5420,7 +5421,7 @@ static u32 calculate_score(struct queue_entry *q)
     {
       double tmp_prob_df = (q->df_distance[i] - min_df_distance[i]) / (max_df_distance[i] - min_df_distance[i]);
       double tmp_prob_bt = (q->bt_distance[i] - min_bt_distance[i]) / (max_bt_distance[i] - min_bt_distance[i]);
-      double tmp_prob_avg = 0.6 * tmp_prob_df + 0.4 * tmp_prob_bt;
+      double tmp_prob_avg = 0.7 * tmp_prob_df + 0.3 * tmp_prob_bt;
       if (tmp_prob_avg <= 0.0)
       {
         prob_avg = 0.0;

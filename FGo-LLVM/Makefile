@@ -7,7 +7,7 @@ LLVM_RUNTIME_OBJ_NAME = llvm-runtime
 
 ## LLVM_DIR
 ifndef LLVM_DIR
-LLVM_DIR=../Dependency/llvm-11.0.0.obj
+LLVM_DIR=../Dependency/llvm-14.0.0.obj
 endif
 ifeq ($(wildcard $(LLVM_DIR)),)
 $(error "The 'LLVM_DIR'='$(LLVM_DIR)' doesn't exist")
@@ -84,7 +84,16 @@ LLVM_RUNTIME_OBJ64 = $(LLVM_RUNTIME_OBJ_NAME).64.o
 CLANG_WRAPPER = fgo-clang
 CLANG_WRAPPER_CPP = fgo-clang++
 
-BUILD_TASKS = $(LLVM_PASS_LIB) $(CLANG_WRAPPER) $(LLVM_RUNTIME_OBJ) $(LLVM_RUNTIME_OBJ32) $(LLVM_RUNTIME_OBJ64)
+FGO_DEFINITION_FILE = ../Utility/FGoDefs.h
+NATIVE_CLANG_ENVAR = $(shell grep 'NATIVE_CLANG_ENVAR' $(FGO_DEFINITION_FILE) | awk '{print $$3}' | tr -d '"')
+DIST_DIR_ENVAR = $(shell grep 'DIST_DIR_ENVAR' $(FGO_DEFINITION_FILE) | awk '{print $$3}' | tr -d '"')
+PROJ_ROOT_ENVAR = $(shell grep 'PROJ_ROOT_ENVAR' $(FGO_DEFINITION_FILE) | awk '{print $$3}' | tr -d '"')
+CLANG_WRAPPER_PATH = $(CURDIR)/$(CLANG_WRAPPER)
+CLANG_WRAPPER_CPP_PATH = $(CURDIR)/$(CLANG_WRAPPER_CPP)
+FGO_COMPILER_SETUP_NAIVE = fgo-compiler-setup.in
+FGO_COMPILER_SETUP = fgo-compiler-setup
+
+BUILD_TASKS = $(LLVM_PASS_LIB) $(CLANG_WRAPPER) $(LLVM_RUNTIME_OBJ) $(LLVM_RUNTIME_OBJ32) $(LLVM_RUNTIME_OBJ64) $(FGO_COMPILER_SETUP)
 
 all: $(BUILD_TASKS)
 
@@ -112,14 +121,20 @@ $(LLVM_RUNTIME_OBJ64): LLVM-Runtime.c
 
 test_build: $(BUILD_TASKS)
 	@echo "Performing a simple test..."
-	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 ./$(CLANG_WRAPPER) -g -distdir=test -projroot=test test/instr.c -o test/instr &> /dev/null; DR="$$?"; rm -f test/instr; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation failed!"; echo; exit 1; fi
-# -../AFL-Fuzz/afl-showmap -m none -q -o test/.instr0 test/instr < /dev/null
-# -echo 1 | ../AFL-Fuzz/afl-showmap -m none -q -o test/.instr1 test/instr
-# @rm -f test/instr
-# cmp -s test/.instr0 test/.instr1; DR="$$?"; rm -f test/.instr0 test/.instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; exit 1; fi
+	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1; unset FGO_NATIVE_CLANG; FGO_PROJ_ROOT_DIR=`pwd`/test FGO_DIST_DIR=`pwd`/test ./$(CLANG_WRAPPER) -g test/instr.c -o test/instr &> /dev/null; DR="$$?"; rm -f test/instr; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation failed!"; echo; exit 1; fi
 	@echo "All right, the instrumentation works!"
+
+$(FGO_COMPILER_SETUP) : $(FGO_COMPILER_SETUP_NAIVE)
+	@cp -f $< $@
+	@sed -i 's@CLANG_WRAPPER_CC@$(CLANG_WRAPPER_PATH)@g' $@
+	@sed -i 's@CLANG_WRAPPER_CPP@$(CLANG_WRAPPER_CPP_PATH)@g' $@
+	@sed -i 's@NATIVE_CLANG_ENVAR@$(NATIVE_CLANG_ENVAR)@g' $@
+	@sed -i 's@DIST_DIR_ENVAR@$(DIST_DIR_ENVAR)@g' $@
+	@sed -i 's@PROJ_ROOT_ENVAR@$(PROJ_ROOT_ENVAR)@g' $@
+	@chmod +x $@
+	@echo "GENERATE => $@"
 
 .PHONY: clean
 
 clean:
-	@rm -f $(CLANG_WRAPPER) $(LLVM_RUNTIME_OBJ) $(LLVM_RUNTIME_OBJ32) $(LLVM_RUNTIME_OBJ64) $(LLVM_PASS_LIB)
+	@rm -f $(CLANG_WRAPPER) $(CLANG_WRAPPER_CPP) $(LLVM_RUNTIME_OBJ) $(LLVM_RUNTIME_OBJ32) $(LLVM_RUNTIME_OBJ64) $(LLVM_PASS_LIB) $(FGO_COMPILER_SETUP)

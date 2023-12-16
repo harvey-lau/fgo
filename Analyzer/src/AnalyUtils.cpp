@@ -390,5 +390,12 @@ String getExeDirPath()
         return "";
     }
 }
+
+String realPath(const String &basePath)
+{
+    llvm::SmallString<PATH_MAX> resPath;
+    if (llvm::sys::fs::real_path(basePath, resPath)) return "";
+    else return resPath.str().str();
+}
 } // namespace Analy
 } // namespace FGo

@@ -289,6 +289,11 @@ String getCurrentPath();
 /// @param fileName
 /// @return The joined new path
 String joinPath(const String &basePath, const String &fileName);
+
+/// @brief Get the real path of a path
+/// @param basePath
+/// @return
+String realPath(const String &basePath);
 } // namespace Analy
 } // namespace FGo
 

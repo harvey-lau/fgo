@@ -13,6 +13,9 @@
 // Environment variable name for distance directory
 #define DIST_DIR_ENVAR "FGO_DIST_DIR"
 
+// Environment variable name for usage of native clang
+#define NATIVE_CLANG_ENVAR "FGO_NATIVE_CLANG"
+
 // LLVM option name for distance directory
 #define LLVM_OPT_DISTDIR_NAME "distdir"
 

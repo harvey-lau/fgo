@@ -27,76 +27,6 @@ namespace FGo
 namespace Analy
 {
 
-// static void parseSourceLoc(String sourceLoc, unsigned &line, unsigned &column, String &file)
-// {
-//     line = 0;
-//     column = 0;
-//     file = "\"\"";
-//     Set<char> whiteSpaceSet({' ', '\t', '\n', '\r', '\f', '\v'});
-
-//     size_t pos = sourceLoc.find("location");
-//     size_t pos2 = pos;
-//     if (pos < sourceLoc.size() - 1) {
-//         pos = sourceLoc.find('{', pos);
-//         if (pos >= sourceLoc.size() - 1) return;
-//         pos2 = sourceLoc.find_last_of('}');
-//         if (pos2 >= sourceLoc.size()) return;
-//         pos2 = sourceLoc.find_last_of('}', pos2 - 1);
-//         if (pos2 >= sourceLoc.size() - 1) return;
-//         sourceLoc = sourceLoc.substr(pos, pos2 - pos + 1);
-//     }
-
-//     pos = sourceLoc.find('{');
-//     while (pos < sourceLoc.size() - 1) {
-//         ++pos;
-//         // find the key
-//         pos2 = sourceLoc.find('"', pos);
-//         if (pos2 >= sourceLoc.size() - 1) break;
-//         pos = pos2 + 1;
-//         pos2 = sourceLoc.find('"', pos);
-//         if (pos2 >= sourceLoc.size() - 1) break;
-//         String key = sourceLoc.substr(pos, pos2 - pos);
-
-//         // find the value
-//         pos2 = sourceLoc.find(':', pos2);
-//         if (pos2 >= sourceLoc.size() - 1) break;
-//         pos = pos2 + 1;
-//         while (pos < sourceLoc.size() &&
-//                whiteSpaceSet.find(sourceLoc[pos]) != whiteSpaceSet.end())
-//             ++pos;
-//         if (pos >= sourceLoc.size() - 1) break;
-//         String value = "";
-//         if (sourceLoc[pos] != '"') // integer number
-//         {
-//             pos2 = pos;
-//             while (pos2 < sourceLoc.size() &&
-//                    whiteSpaceSet.find(sourceLoc[pos2]) == whiteSpaceSet.end() &&
-//                    sourceLoc[pos2] != ',')
-//                 ++pos2;
-//             if (pos2 >= sourceLoc.size() - 1) break;
-//             value = sourceLoc.substr(pos, pos2 - pos);
-//             pos = pos2;
-//         }
-//         else // string
-//         {
-//             pos2 = pos + 1;
-//             while (pos2 < sourceLoc.size() &&
-//                    (sourceLoc[pos2] != '"' ||
-//                     (sourceLoc[pos2 - 1] == '\\' && sourceLoc[pos2 - 2] != '\\')))
-//                 ++pos2;
-//             if (pos2 >= sourceLoc.size() - 1) break;
-//             value = sourceLoc.substr(pos, pos2 - pos + 1);
-//             pos = pos2 + 1;
-//         }
-
-//         while (pos < sourceLoc.size() && sourceLoc[pos] != ',') ++pos;
-
-//         if (key == "ln") line = std::stoul(value);
-//         else if (key == "cl") column = std::stoul(value);
-//         else if (key == "fl" || key == "file") file = value;
-//     }
-// }
-
 void SVFAnalyzer::analyze(const StringVector &moduleNames)
 {
     uint64_t fileSize = 0;
@@ -600,12 +530,25 @@ void GraphAnalyzer::loadTargets(const String &targetFile)
         }
 
         ifs.close();
+
         if (m_targetLocations.empty()) throw AnalyException("No target was found");
         if (m_targetLocations.size() > MAX_TARGET_COUNT)
             throw AnalyException(
                 toString(m_targetLocations.size()) + " targets (more than " +
                 toString(MAX_TARGET_COUNT) + ") were found"
             );
+        for (size_t i = 0; i < m_targetLocations.size(); ++i) {
+            String tmpSrcFilePath = m_projRootPath;
+            for (const auto &tmpFileChunk : m_targetLocations[i].filePathChunks) {
+                tmpSrcFilePath = joinPath(tmpSrcFilePath, tmpFileChunk);
+            }
+            if (!pathExists(tmpSrcFilePath) || !pathIsFile(tmpSrcFilePath))
+                throw AnalyException(
+                    "The source file '" + tmpSrcFilePath + "' of Target " + toString(i) +
+                    " doesn't exist"
+                );
+        }
+
         m_targetCount = m_targetLocations.size();
         m_targetNodes.resize(m_targetCount);
 
@@ -707,35 +650,6 @@ void GraphAnalyzer::loadSimpleCallGraph()
         }
         m_isSimpleCGLoaded = true;
     }
-    // for (auto iter = m_simpleCallGraph.begin(); iter != m_simpleCallGraph.end(); ++iter)
-    // {
-    // }
-    // if (!m_isSimpleCGLoaded)
-    // {
-    //     for (auto iter = m_callgraph->begin(); iter != m_callgraph->end(); ++iter)
-    //     {
-    //         auto curFunc = iter->second->getFunction();
-    //         if (m_simpleCallGraph.find(curFunc) == m_simpleCallGraph.end())
-    //             m_simpleCallGraph[curFunc] = Set<const SVF::SVFFunction *>();
-    //         for (auto t_iter = iter->second->OutEdgeBegin(); t_iter !=
-    //         iter->second->OutEdgeEnd(); ++t_iter)
-    //         {
-    //             m_simpleCallGraph[curFunc].emplace((*t_iter)->getDstNode()->getFunction());
-    //         }
-    //     }
-    //     auto indCallGraph = m_callgraph->getIndCallMap();
-    //     for (auto iter = indCallGraph.begin(); iter != indCallGraph.end(); ++iter)
-    //     {
-    //         auto uFunc = iter->first->getFun();
-    //         if (m_simpleCallGraph.find(uFunc) == m_simpleCallGraph.end())
-    //             m_simpleCallGraph[uFunc] = Set<const SVF::SVFFunction *>();
-    //         for (auto vFunc : iter->second)
-    //         {
-    //             m_simpleCallGraph[uFunc].emplace(vFunc);
-    //         }
-    //     }
-    //     m_isSimpleCGLoaded = true;
-    // }
 }
 
 void GraphAnalyzer::subCalculateCalls(const SVF::FunEntryICFGNode *funcEntryNode)
@@ -1034,132 +948,6 @@ Vector<int32_t> GraphAnalyzer::singleCalculateBlock(const SVF::ICFGNode *node)
     }
 
     return result;
-}
-
-void GraphAnalyzer::dfsCalculateBlocks(
-    const SVF::ICFGNode *node, Map<SVF::NodeID, Vector<int32_t>> &distMap,
-    Set<SVF::NodeID> &curProcNodes
-)
-{
-    auto nodeID = node->getId();
-
-    bool hasOneSuccessor = false;
-    uint32_t intervalDist = 0; // For function call node
-    Vector<int32_t> resDist(m_targetCount, -1);
-    List<const SVF::ICFGNode *> sequenceNodes, succNodes;
-
-    // Skip the nodes being processed or processed
-    if (curProcNodes.find(nodeID) != curProcNodes.end()) {
-        return;
-    }
-    else if (distMap.find(nodeID) != distMap.end()) {
-        return;
-    }
-
-    // Check whether current node is one of the target nodes
-    for (size_t i = 0; i < m_targetCount; ++i) {
-        if (m_targetNodes[i].find(nodeID) != m_targetNodes[i].end()) {
-            resDist[i] = 0;
-        }
-    }
-
-    // Handle exit nodes and call nodes
-    if (node->getNodeKind() == SVF::ICFGNode::ICFGNodeK::FunExitBlock) {
-        if (distMap.find(nodeID) == distMap.end()) {
-            distMap[nodeID] = resDist;
-        }
-        return;
-    }
-    else if (node->getNodeKind() == SVF::ICFGNode::ICFGNodeK::FunCallBlock) {
-        for (auto iter = node->OutEdgeBegin(); iter != node->OutEdgeEnd(); ++iter) {
-            auto tmpNode = (*iter)->getDstNode();
-            if (tmpNode->getNodeKind() == SVF::ICFGNode::ICFGNodeK::FunEntryBlock) {
-                auto tmpFuncName = tmpNode->getFun()->getName();
-                if (m_callDistMap.find(tmpFuncName) != m_callDistMap.end()) {
-                    getLesserVector(resDist, resDist, m_callDistMap[tmpFuncName].second);
-                    intervalDist = m_callDistMap[tmpFuncName].first;
-                }
-                else {
-                    intervalDist = EXTERN_CALL_DIST;
-                }
-            }
-        }
-        auto tmpFuncCallNode = SVF::SVFUtil::dyn_cast<SVF::CallICFGNode>(node);
-        succNodes.push_back(tmpFuncCallNode->getRetICFGNode());
-    }
-    else if (node->getOutEdges().size() == 0) { // Current node doesn't have successors
-        if (distMap.find(nodeID) == distMap.end()) {
-            distMap[nodeID] = resDist;
-        }
-        return;
-    }
-    else if (node->getOutEdges().size() == 1)
-    { // Current node has only one successor
-      // Add the series of nodes with only one parent node and one successor
-      // to a squence to avoid frequent invocation of DFS
-        hasOneSuccessor = true;
-        auto tmpNode = node;
-        do {
-            if (tmpNode->getNodeKind() == SVF::ICFGNode::ICFGNodeK::FunExitBlock) break;
-            if (tmpNode->getNodeKind() == SVF::ICFGNode::ICFGNodeK::FunCallBlock) break;
-            sequenceNodes.push_back(tmpNode);
-            auto iter = tmpNode->OutEdgeBegin();
-            tmpNode = (*iter)->getDstNode();
-        } while (tmpNode->getOutEdges().size() == 1 && tmpNode->getInEdges().size() == 1);
-        succNodes.push_back(tmpNode);
-    }
-    else {
-        for (auto iter = node->OutEdgeBegin(); iter != node->OutEdgeEnd(); ++iter) {
-            succNodes.push_back((*iter)->getDstNode());
-        }
-    }
-
-    curProcNodes.emplace(nodeID);
-
-    // Get the compared distances for current node
-    for (const auto &succNode : succNodes) {
-        dfsCalculateBlocks(succNode, distMap, curProcNodes);
-    }
-    for (const auto &succNode : succNodes) {
-        auto succNodeID = succNode->getId();
-        Vector<int32_t> tmpSuccNodeDist(m_targetCount, -1);
-        if (distMap.find(succNodeID) != distMap.end()) tmpSuccNodeDist = distMap[succNodeID];
-        if (intervalDist > 0) {
-            for (auto &value : tmpSuccNodeDist)
-                value = value < 0 ? value : (value + intervalDist);
-        }
-        getLesserVector(resDist, resDist, tmpSuccNodeDist);
-    }
-
-    if (sequenceNodes.size() > 0) { // A sequence of nodes
-        auto iter = --sequenceNodes.end();
-        while (true) {
-            auto tmpNodeID = (*iter)->getId();
-
-            for (auto &value : resDist) value = value < 0 ? value : (value + 1);
-
-            // Check whether the temporary node is one of the target nodes
-            for (size_t i = 0; i < m_targetCount; ++i) {
-                if (m_targetNodes[i].find(tmpNodeID) != m_targetNodes[i].end()) resDist[i] = 0;
-            }
-
-            if (distMap.find(tmpNodeID) != distMap.end())
-                getLesserVector(distMap[tmpNodeID], distMap[tmpNodeID], resDist);
-            else distMap[tmpNodeID] = resDist;
-
-            if (iter == sequenceNodes.begin()) break;
-            else --iter;
-        }
-    }
-    else {
-        for (auto &value : resDist) value = value < 0 ? value : (value + 1);
-
-        if (distMap.find(nodeID) != distMap.end())
-            getLesserVector(distMap[nodeID], distMap[nodeID], resDist);
-        else distMap[nodeID] = resDist;
-    }
-
-    if (curProcNodes.find(nodeID) != curProcNodes.end()) curProcNodes.erase(nodeID);
 }
 
 void GraphAnalyzer::threadCalculateBlocks(const SVF::FunEntryICFGNode *funcEntryNode)
@@ -1461,8 +1249,8 @@ void GraphAnalyzer::calculateBlocksFinalDistInICFG()
     m_isPseudoDistCalc = true;
 }
 
-static String getSimFileName(
-    const String &fileName, const StringVector &fileNameChunks, const String &projRootDir
+String GraphAnalyzer::getRelSrcFilePath(
+    const String &fileName, const StringVector &fileNameChunks
 )
 {
     static Map<String, String> fileNameMap;
@@ -1481,32 +1269,31 @@ static String getSimFileName(
         return "";
     }
 
-    String simFileName = "";
+    String relSrcFilePath = "";
     while (pos < fileNameChunks.size()) {
-        simFileName += fileNameChunks[pos++];
-        if (pos < fileNameChunks.size()) simFileName += '/';
+        relSrcFilePath += fileNameChunks[pos++];
+        if (pos < fileNameChunks.size()) relSrcFilePath += '/';
     }
 
-    String simFilePath = projRootDir + "/" + simFileName;
+    String simFilePath = m_projRootPath + "/" + relSrcFilePath;
     if (pathExists(simFilePath) && pathIsFile(simFilePath)) {
-        fileNameMap[fileName] = simFileName;
-        return simFileName;
+        fileNameMap[fileName] = relSrcFilePath;
+        return relSrcFilePath;
     }
     else {
-        // TODO
-        simFileName = fileNameChunks.back();
-        fileNameMap[fileName] = simFileName;
-        return simFileName;
+        relSrcFilePath = fileNameChunks.back();
+        fileNameMap[fileName] = relSrcFilePath;
+        return relSrcFilePath;
     }
 }
 
-static String getSimFileName(const String &fileName, const String &projRootDir)
+String GraphAnalyzer::getRelSrcFilePath(const String &fileName)
 {
-    return getSimFileName(fileName, splitString(fileName, "/"), projRootDir);
+    return getRelSrcFilePath(fileName, splitString(fileName, "/"));
 }
 
 void GraphAnalyzer::dumpBlocksDistance(
-    const String &outBlocksDistFile, const String &projRootDir, bool isPseudo /*=false*/
+    const String &outBlocksDistFile, bool isPseudo /*=false*/
 )
 {
     String filePath = outBlocksDistFile + ".json";
@@ -1523,9 +1310,9 @@ void GraphAnalyzer::dumpBlocksDistance(
     Json::Value root;
     for (auto &key_value : tmpBlockDistMap) {
         if (m_nodeLocations.find(key_value.first) != m_nodeLocations.end()) {
-            auto file = getSimFileName(
+            auto file = getRelSrcFilePath(
                 m_nodeLocations[key_value.first].file,
-                m_nodeLocations[key_value.first].filePathChunks, projRootDir
+                m_nodeLocations[key_value.first].filePathChunks
             );
             auto line = toString(m_nodeLocations[key_value.first].line);
             if (!file.empty()) {
@@ -1538,12 +1325,6 @@ void GraphAnalyzer::dumpBlocksDistance(
                     }
                 }
                 else {
-                    // for (unsigned i = 0; i < m_targetCount; ++i)
-                    // {
-                    //     if (key_value.second[i] >= 0 && (root[file][line][i] < 0 ||
-                    //     root[file][line][i] > key_value.second[i]))
-                    //         root[file][line][i] = key_value.second[i];
-                    // }
                     getLesserVector(root[file][line], key_value.second, m_targetCount);
                 }
             }
@@ -1560,7 +1341,7 @@ void GraphAnalyzer::dumpBlocksDistance(
 }
 
 void GraphAnalyzer::dumpBasicBlockDistance(
-    const String &outBBDistFile, const String &projRootDir, bool isPseudo /*=false*/
+    const String &outBBDistFile, bool isPseudo /*=false*/
 )
 {
     String filePath = outBBDistFile + ".json";
@@ -1596,18 +1377,18 @@ void GraphAnalyzer::dumpBasicBlockDistance(
         String sourceLoc = key_value.first->getSourceLoc();
         parseSVFLocationString(sourceLoc, line, column, file);
         if (!file.empty() && line > 0) {
-            String simFileName = getSimFileName(file, projRootDir);
+            String relSrcFilePath = getRelSrcFilePath(file);
             String lineStr = toString(line);
-            if (!root.isMember(simFileName)) root[simFileName] = Json::Value();
-            if (!root[simFileName].isMember(lineStr)) {
-                root[simFileName][lineStr] = Json::Value();
-                root[simFileName][lineStr].resize(m_targetCount);
+            if (!root.isMember(relSrcFilePath)) root[relSrcFilePath] = Json::Value();
+            if (!root[relSrcFilePath].isMember(lineStr)) {
+                root[relSrcFilePath][lineStr] = Json::Value();
+                root[relSrcFilePath][lineStr].resize(m_targetCount);
                 for (Json::Value::ArrayIndex i = 0; i < m_targetCount; ++i) {
-                    root[simFileName][lineStr][i] = key_value.second[i];
+                    root[relSrcFilePath][lineStr][i] = key_value.second[i];
                 }
             }
             else {
-                getLesserVector(root[simFileName][lineStr], key_value.second, m_targetCount);
+                getLesserVector(root[relSrcFilePath][lineStr], key_value.second, m_targetCount);
             }
         }
     }
@@ -1621,95 +1402,7 @@ void GraphAnalyzer::dumpBasicBlockDistance(
     m_progressBar.stop();
 }
 
-void GraphAnalyzer::dumpBasicBlockFinalDistance(
-    const String &outBBDistanceFile, const String &projRootDir
-)
-{
-    String filePath = outBBDistanceFile + ".json";
-
-    m_progressBar.start(0, "Writing the final distances for basic blocks", true);
-    m_progressBar.show("Dumping to " + filePath);
-
-    Map<const SVF::SVFBasicBlock *, Vector<int32_t>> BBDistMap;
-    for (const auto &key_value : m_blockDistMap) {
-        auto node = m_icfg->getICFGNode(key_value.first);
-        auto nodeID = node->getId();
-        auto nodeBB = node->getBB();
-        if (BBDistMap.find(nodeBB) == BBDistMap.end()) {
-            BBDistMap[nodeBB] = key_value.second;
-        }
-        else {
-            getLesserVector(BBDistMap[nodeBB], key_value.second, m_targetCount);
-        }
-    }
-    for (const auto &key_value : m_blockPseudoDistMap) {
-        auto node = m_icfg->getICFGNode(key_value.first);
-        auto nodeID = node->getId();
-        auto nodeBB = node->getBB();
-
-        // TODO
-        // How to leverage the backtrace distances
-        if (BBDistMap.find(nodeBB) == BBDistMap.end()) {
-            BBDistMap[nodeBB] = key_value.second;
-        }
-        else {
-            getNonNegativeVector(BBDistMap[nodeBB], key_value.second, m_targetCount);
-        }
-    }
-
-    Json::Value root;
-    for (const auto &key_value : BBDistMap) {
-        unsigned line = 0, column = 0;
-        String file("");
-        String sourceLoc = key_value.first->getSourceLoc();
-        parseSVFLocationString(sourceLoc, line, column, file);
-        if (!file.empty() && line > 0) {
-            String simFileName = getSimFileName(file, projRootDir);
-            String lineStr = toString(line);
-            if (!root.isMember(simFileName)) root[simFileName] = Json::Value();
-
-            // TODO
-            // How to calculate the final distances
-            int32_t finalDistance = -1;
-            { // Calculate the final distance using harmonic mean
-                double tmpSum = 0.0;
-                uint32_t tmpCount = 0;
-                for (const auto &value : key_value.second) {
-                    if (value == 0) {
-                        finalDistance = 0;
-                        break;
-                    }
-                    else if (value > 0) {
-                        tmpSum += 1.0 / (double)value;
-                        ++tmpCount;
-                    }
-                }
-                if (finalDistance < 0 && tmpCount > 0) {
-                    finalDistance = (int)((double)tmpCount / tmpSum) + 1;
-                }
-            }
-
-            if (!root[simFileName].isMember(lineStr)) {
-                root[simFileName][lineStr] = finalDistance;
-            }
-            else {
-                if (finalDistance >= 0 && (root[simFileName][lineStr] < 0 ||
-                                           root[simFileName][lineStr] > finalDistance))
-                    root[simFileName][lineStr] = finalDistance;
-            }
-        }
-    }
-
-    std::ofstream ofs(filePath, std::ios::out | std::ios::trunc);
-    if (!ofs.is_open()) throw AnalyException("Failed to open output file " + filePath);
-    Json::StreamWriterBuilder builder;
-    const std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-    writer->write(root, &ofs);
-
-    m_progressBar.stop();
-}
-
-void GraphAnalyzer::dumpFuzzingInfo(const String &outFuzzingInfoFile, bool usingDistrib)
+void GraphAnalyzer::dumpTargetFuzzingInfo(const String &outFuzzingInfoFile, bool usingDistrib)
 {
     /// Calculate frequency of sample data
     auto calcFrequency = [](const Vector<uint32_t> &data, Vector<long double> &quantile,

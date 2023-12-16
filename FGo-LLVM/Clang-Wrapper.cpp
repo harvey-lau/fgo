@@ -58,6 +58,7 @@ private:
     std::vector<std::string> m_arguments;
     bool m_isCpp;
     bool m_isInstrument;
+    bool m_isNative;
 
     std::string m_LLVMPassLib;
     std::string m_LLVMRuntimeObj;
@@ -80,14 +81,6 @@ static std::string joinPath(const std::string &basePath, const std::string &file
     std::filesystem::path fsFileName = fileName;
     std::filesystem::path fsResult = fsBasePath / fsFileName;
     return fsResult.string();
-
-    // if (basePath.empty()) return fileName;
-    // else if (basePath.back() == '/') {
-    //     return basePath + fileName;
-    // }
-    // else {
-    //     return basePath + "/" + fileName;
-    // }
 }
 
 static std::string parentPath(const std::string &filePath)
@@ -184,6 +177,7 @@ CompilerWrapper::CompilerWrapper(int argc, char **argv)
             m_isInstrument = true;
     }
     if (getenv(DIST_DIR_ENVAR)) m_isInstrument = true;
+    if (getenv(NATIVE_CLANG_ENVAR)) m_isNative = true;
 }
 
 void CompilerWrapper::updateArguments()
@@ -206,22 +200,14 @@ void CompilerWrapper::updateArguments()
     newArgs.push_back("-sanitizer-coverage-block-threshold=0");
     #error AFLGO has not supported trace-pc-guard yet
 #else
-    newArgs.push_back("-Xclang");
-    newArgs.push_back("-load");
-    newArgs.push_back("-Xclang");
-    newArgs.push_back(m_LLVMPassLib);
+    newArgs.push_back("-fexperimental-new-pass-manager");
+    newArgs.push_back("-fpass-plugin=" + m_LLVMPassLib);
 #endif /* ^USE_TRACE_PC */
 
     newArgs.push_back("-Qunused-arguments");
 
     if (m_arguments.size() == 1 && m_arguments.front() == "-v") {
         maybeLinking = false;
-    }
-
-    if (!m_isInstrument) {
-        newArgs.push_back("-flto");
-        newArgs.push_back("-fuse-ld=gold");
-        newArgs.push_back("-Wl,-plugin-opt=save-temps");
     }
 
     for (const auto &curArg : m_arguments) {
@@ -426,8 +412,7 @@ void CompilerWrapper::execute()
 
 int main(int argc, char **argv)
 {
-
-    if (!getenv("AFL_QUIET")) {
+    if (isatty(2) && !getenv("AFL_QUIET")) {
 
 #ifdef USE_TRACE_PC
         FGo::HighlightSome("FGo Compiler (tpcg)", "");

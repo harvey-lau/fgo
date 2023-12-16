@@ -206,6 +206,9 @@ private:
     Map<String, ElementCountMap> m_callMap;
     Map<String, ElementCountMap> m_indCallMap;
 
+    /// @brief The root path of the project
+    String m_projRootPath;
+
     /// @brief Node locations
     Map<SVF::NodeID, NodeLocation> m_nodeLocations;
 
@@ -273,14 +276,20 @@ private:
 
     Vector<int32_t> singleCalculateBlock(const SVF::ICFGNode *node);
 
-    void dfsCalculateBlocks(
-        const SVF::ICFGNode *node, Map<SVF::NodeID, Vector<int32_t>> &distMap,
-        Set<SVF::NodeID> &curProcNodes
-    );
-
     void threadCalculateBlocks(const SVF::FunEntryICFGNode *funcEntryNode);
 
     void subCalculateFinalBlocks(const SVF::FunEntryICFGNode *funcEntryNode);
+
+    /// @brief Get the relative path of source file name from SVF module
+    /// @param fileName
+    /// @param fileNameChunks
+    /// @return
+    String getRelSrcFilePath(const String &fileName, const StringVector &fileNameChunks);
+
+    /// @brief Get the relative path of source file name from SVF module
+    /// @param fileName
+    /// @return
+    String getRelSrcFilePath(const String &fileName);
 
 public:
     GraphAnalyzer() :
@@ -288,10 +297,11 @@ public:
         m_icfg_processed(false), m_isTargetsLoaded(false), m_isSimpleCGLoaded(false),
         m_isCallDistCalc(false), m_isBlockDistCalc(false), m_isPseudoDistCalc(false)
     {}
-    GraphAnalyzer(SVF::PTACallGraph *_cg, SVF::ICFG *_icfg) :
+    GraphAnalyzer(SVF::PTACallGraph *_cg, SVF::ICFG *_icfg, const String &_projroot) :
         m_callgraph(_cg), m_icfg(_icfg), m_cg_processed(false), m_icfg_analyzed(false),
         m_icfg_processed(false), m_isTargetsLoaded(false), m_isSimpleCGLoaded(false),
-        m_isCallDistCalc(false), m_isBlockDistCalc(false), m_isPseudoDistCalc(false)
+        m_isCallDistCalc(false), m_isBlockDistCalc(false), m_isPseudoDistCalc(false),
+        m_projRootPath(_projroot)
     {}
     GraphAnalyzer(const GraphAnalyzer &_other);
     ~GraphAnalyzer()
@@ -350,9 +360,7 @@ public:
     /// @param isPseudo
     /// @exception `AnalyException`
     /// @exception `std::exception`
-    void dumpBlocksDistance(
-        const String &outBlocksDistFile, const String &projRootDir, bool isPseudo = false
-    );
+    void dumpBlocksDistance(const String &outBlocksDistFile, bool isPseudo = false);
 
     /// @brief Dump the distances for basic blocks
     /// @param outBBDistFile
@@ -360,19 +368,7 @@ public:
     /// @param isPseudo
     /// @exception `AnalyException`
     /// @exception `std::exception`
-    void dumpBasicBlockDistance(
-        const String &outBBDistFile, const String &projRootDir, bool isPseudo = false
-    );
-
-    /// @brief Dump the final distances for basic blocks
-    /// @param outBBDistanceFile
-    /// @param projRootDir
-    /// @exception `UnexpectedException`
-    /// @exception `AnalyException`
-    /// @exception `std::exception`
-    void dumpBasicBlockFinalDistance(
-        const String &outBBDistanceFile, const String &projRootDir
-    );
+    void dumpBasicBlockDistance(const String &outBBDistFile, bool isPseudo = false);
 
     /// @brief Dump some information for fuzzing
     /// @param outFuzzingInfoFile
@@ -380,7 +376,7 @@ public:
     /// @exception `InvalidDataSetException`
     /// @exception `AnalyException`
     /// @exception `std::exception`
-    void dumpFuzzingInfo(const String &outFuzzingInfoFile, bool usingDistrib);
+    void dumpTargetFuzzingInfo(const String &outFuzzingInfoFile, bool usingDistrib);
 };
 
 } // namespace Analy

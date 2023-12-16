@@ -1,6 +1,33 @@
+/*
+   american fuzzy lop++ - LLVM-mode instrumentation pass
+   ---------------------------------------------------
+
+   Written by Laszlo Szekeres <lszekeres@google.com>,
+              Adrian Herrera <adrian.herrera@anu.edu.au>,
+              Michal Zalewski
+
+   LLVM integration design comes from Laszlo Szekeres. C bits copied-and-pasted
+   from afl-as.c are Michal's fault.
+
+   NGRAM previous location coverage comes from Adrian Herrera.
+
+   Copyright 2015, 2016 Google Inc. All rights reserved.
+   Copyright 2019-2023 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+
+     https://www.apache.org/licenses/LICENSE-2.0
+
+   This library is plugged into LLVM when invoking clang through afl-clang-fast.
+   It tells the compiler to add code roughly equivalent to the bits discussed
+   in ../afl-as.h.
+
+ */
+
 /**
- *
- *
+ * Created by Joshua on Nov. 20, 2023
  *
  */
 
@@ -11,17 +38,21 @@
 #include "../Utility/FGoDefs.h"
 #include "../Utility/FGoUtils.hpp"
 
-#include "llvm/ADT/Statistic.h"
+#include "llvm/Config/llvm-config.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+
+/* use new pass manager */
+#include "llvm/IR/PassManager.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
 
 #include "json/json.h"
 #include <cstdlib>
@@ -29,6 +60,8 @@
 #include <unordered_map>
 
 using namespace llvm;
+
+#if LLVM_VERSION_MAJOR >= 14
 
 cl::opt<std::string> finalDistanceDir(
     LLVM_OPT_DISTDIR_NAME, cl::desc("The directory containing the final distance files."),
@@ -42,18 +75,49 @@ cl::opt<std::string> projRootDir(
 
 namespace
 {
-class FGoModulePass : public ModulePass
+class FGoModulePass : public PassInfoMixin<FGoModulePass>
 {
 public:
-    static char ID;
-    FGoModulePass() : ModulePass(ID)
+    FGoModulePass()
     {}
 
-    bool runOnModule(Module &M) override;
+    /* use new pass manager */
+    PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 } // namespace
 
-char FGoModulePass::ID = 0;
+/* use new pass manager */
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
+{
+    return {
+        LLVM_PLUGIN_API_VERSION, "FGoModulePass", "v1.0",
+        /* lambda to insert our pass into the pass pipeline. */
+        [](PassBuilder &PB) {
+
+    #if 1
+            PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
+                                                  OptimizationLevel OL) {
+                MPM.addPass(FGoModulePass());
+            });
+
+    /* TODO LTO registration */
+    #else
+            using PipelineElement = typename PassBuilder::PipelineElement;
+            PB.registerPipelineParsingCallback([](StringRef Name, ModulePassManager &MPM,
+                                                  ArrayRef<PipelineElement>) {
+                if (Name == "AFLCoverage") {
+                    MPM.addPass(AFLCoverage());
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            });
+
+    #endif
+        }
+    };
+}
 
 namespace FGo
 {
@@ -214,79 +278,78 @@ bool parseDistMapFromJsonFile(
     return true;
 }
 
-std::string generateUniqueName()
-{
-    return std::to_string(AFL_R(INT32_MAX));
-}
 } // namespace FGo
 
-bool FGoModulePass::runOnModule(Module &M)
+PreservedAnalyses FGoModulePass::run(Module &M, ModuleAnalysisManager &MAM)
 {
     using namespace FGo;
 
+    /* use new pass manager */
+    auto PA = PreservedAnalyses::all();
+
     // Preprocessing Mode
     if (finalDistanceDir.empty() && !getenv(DIST_DIR_ENVAR)) {
-        if (!getenv("AFL_QUIET")) {
+        if (isatty(2) && !getenv("AFL_QUIET")) {
             FGo::HighlightSome(COMPILER_HINT, "(Preprocessing Mode - bitcode)");
         }
-        return true;
+        return PA;
+    }
+    else {
+        if (isatty(2) && !getenv("AFL_QUIET")) {
+            if (getenv("AFL_USE_ASAN"))
+                FGo::HighlightSome(COMPILER_HINT, "(Instrumentation | ASan)");
+            else FGo::HighlightSome(COMPILER_HINT, "(Instrumentation | Non-Asan)");
+        }
     }
 
     SmallString<PATH_MAX> basePath;
     if (finalDistanceDir.empty()) {
         finalDistanceDir = getenv(DIST_DIR_ENVAR);
     }
-    if (!sys::fs::exists(finalDistanceDir) || !sys::fs::is_directory(finalDistanceDir)) {
-        AbortOnError(
-            false,
-            "The path '" + finalDistanceDir + "' doesn't exist or doesn't point to a directory"
-        );
-        return false;
-    }
+
+    AbortOnError(
+        sys::fs::exists(finalDistanceDir) && sys::fs::is_directory(finalDistanceDir),
+        "The path '" + finalDistanceDir + "' doesn't exist or doesn't point to a directory"
+    );
+
     if (projRootDir.empty()) {
         const char *tmpProjRootDir = getenv(PROJ_ROOT_ENVAR);
-        if (!tmpProjRootDir) {
-            AbortOnError(
-                false,
-                "Failed to find the root directory of the project from environment variable"
-            );
-            return false;
-        }
+        AbortOnError(
+            tmpProjRootDir,
+            "Failed to find the root directory of the project from environment variable"
+        );
         projRootDir = std::string(tmpProjRootDir);
     }
-    if (!sys::fs::exists(projRootDir) || !sys::fs::is_directory(projRootDir)) {
-        AbortOnError(
-            false,
-            "The path '" + projRootDir + "' doesn't exist or doesn't point to a directory"
-        );
-        return false;
-    }
+
+    AbortOnError(
+        sys::fs::exists(projRootDir) && sys::fs::is_directory(projRootDir),
+        "The path '" + projRootDir + "' doesn't exist or doesn't point to a directory"
+    );
+
     basePath.clear();
     sys::fs::real_path(projRootDir, basePath);
     projRootDir = basePath.str().str();
-    if (projRootDir.empty()) {
-        AbortOnError(
-            false,
-            "Unexpected root: failed to get the real path of the root directory of the project"
-        );
-        return false;
-    }
+    AbortOnError(
+        !projRootDir.empty(),
+        "Unexpected root: failed to get the real path of the root directory of the project"
+    );
 
     // Search depth-dirst distance file and backtrace distance file
     basePath = finalDistanceDir;
     sys::path::append(basePath, std::string(DF_DISTANCE_FILENAME) + ".json");
     std::string dfDistanceFile = basePath.str().str();
-    if (!sys::fs::exists(dfDistanceFile) || !sys::fs::is_regular_file(dfDistanceFile)) {
-        AbortOnError(false, "The distance file '" + dfDistanceFile + "' doesn't exist");
-        return false;
-    }
+    AbortOnError(
+        sys::fs::exists(dfDistanceFile) && sys::fs::is_regular_file(dfDistanceFile),
+        "The distance file '" + dfDistanceFile + "' doesn't exist"
+    );
+
     basePath = finalDistanceDir;
     sys::path::append(basePath, std::string(BT_DISTANCE_FILENAME) + ".json");
     std::string btDistanceFile = basePath.str().str();
-    if (!sys::fs::exists(btDistanceFile) || !sys::fs::is_regular_file(btDistanceFile)) {
-        AbortOnError(false, "The distance file '" + btDistanceFile + "' doesn't exist");
-        return false;
-    }
+    AbortOnError(
+        sys::fs::exists(btDistanceFile) && sys::fs::is_regular_file(btDistanceFile),
+        "The distance file '" + btDistanceFile + "' doesn't exist"
+    );
 
     // Load json value from files
     std::unordered_map<std::string, std::unordered_map<unsigned, std::vector<int32_t>>>
@@ -296,33 +359,28 @@ bool FGoModulePass::runOnModule(Module &M)
     size_t targetCount = 0;
     {
         // Get the depth-first distances for BB
-        if (!parseDistMapFromJsonFile(dfDistanceFile, targetCount, dfBBDistMap)) return false;
-        if (dfBBDistMap.empty()) {
-            AbortOnError(
-                false, "Failed to find any distance for basic blocks in distance file " +
-                           dfDistanceFile
-            );
-            return false;
-        }
+        AbortOnError(
+            parseDistMapFromJsonFile(dfDistanceFile, targetCount, dfBBDistMap),
+            "Failed to parse distance file " + dfDistanceFile
+        );
+        AbortOnError(
+            !dfBBDistMap.empty(),
+            "Failed to find any distance for basic blocks in distance file " + dfDistanceFile
+        );
 
         // Get the backtrace distances for BB
-        if (!parseDistMapFromJsonFile(btDistanceFile, targetCount, btBBDistMap)) return false;
-    }
-    if (targetCount == 0) {
-        AbortOnError(false, "The target count is zero");
-        return false;
-    }
-    if (targetCount > FGO_TARGET_MAX_COUNT) {
         AbortOnError(
-            false, "The target count is greater that 'FGO_TARGET_MAX_COUNT'=" +
-                       std::to_string(FGO_TARGET_MAX_COUNT)
+            parseDistMapFromJsonFile(btDistanceFile, targetCount, btBBDistMap),
+            "Failed to parse distance file " + btDistanceFile
         );
-        return false;
     }
 
-    if (!getenv("AFL_QUIET")) {
-        FGo::HighlightSome(COMPILER_HINT, "(Instrumentation Mode)");
-    }
+    AbortOnError(targetCount > 0, "The target count is zero");
+    AbortOnError(
+        targetCount <= FGO_TARGET_MAX_COUNT,
+        "The target count is greater that 'FGO_TARGET_MAX_COUNT'=" +
+            std::to_string(FGO_TARGET_MAX_COUNT)
+    );
 
     // =======================
     // Instrument distances
@@ -334,11 +392,11 @@ bool FGoModulePass::runOnModule(Module &M)
     IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
     IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
-#ifdef __x86_64__
+    #ifdef __x86_64__
     IntegerType *LargestType = Int64Ty;
-#else
+    #else
     IntegerType *LargestType = Int32Ty;
-#endif
+    #endif
 
     // [Count for DF] | [DF Dist] | [Count for BT] | [BT Dist]  | [Minimal Dist]
     // 0------------7 | 8------15 | 16----------23 | 24------31 | 32----------39 (byte)
@@ -374,6 +432,7 @@ bool FGoModulePass::runOnModule(Module &M)
 
             std::vector<int32_t> dfDistance(targetCount, -1);
             std::vector<int32_t> btDistance(targetCount, -1);
+            bool findBBDist = false;
             std::string bbName = "";
 
             // Get the location of this basic block and fetch the distance
@@ -391,11 +450,13 @@ bool FGoModulePass::runOnModule(Module &M)
                     if (dfBBDistMap.find(filePath) != dfBBDistMap.end()) {
                         if (dfBBDistMap[filePath].find(line) != dfBBDistMap[filePath].end()) {
                             dfDistance = dfBBDistMap[filePath][line];
+                            findBBDist = true;
                         }
                     }
                     else if (dfBBDistMap.find(fileName) != dfBBDistMap.end()) {
                         if (dfBBDistMap[fileName].find(line) != dfBBDistMap[fileName].end()) {
                             dfDistance = dfBBDistMap[fileName][line];
+                            findBBDist = true;
                         }
                     }
 
@@ -403,11 +464,13 @@ bool FGoModulePass::runOnModule(Module &M)
                     if (btBBDistMap.find(filePath) != btBBDistMap.end()) {
                         if (btBBDistMap[filePath].find(line) != btBBDistMap[filePath].end()) {
                             btDistance = btBBDistMap[filePath][line];
+                            findBBDist = true;
                         }
                     }
                     else if (btBBDistMap.find(fileName) != btBBDistMap.end()) {
                         if (btBBDistMap[fileName].find(line) != btBBDistMap[fileName].end()) {
                             btDistance = btBBDistMap[fileName][line];
+                            findBBDist = true;
                         }
                     }
                 }
@@ -422,17 +485,18 @@ bool FGoModulePass::runOnModule(Module &M)
             ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
             // Load previous location
-            LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
+            LoadInst *PrevLoc = IRB.CreateLoad(IRB.getInt32Ty(), AFLPrevLoc);
             PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
             Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
             // Load SHM pointer
-            LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+            LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
             MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-            Value *MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
+            Value *MapPtrIdx =
+                IRB.CreateGEP(Int8Ty, MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
             // Update bitmap
-            LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+            LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
             Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
             Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
             IRB.CreateStore(Incr, MapPtrIdx)
@@ -445,13 +509,13 @@ bool FGoModulePass::runOnModule(Module &M)
 
             {
                 // Increase count at shm
-                auto incrCountAtSHM = [&M, &C, &IRB, &MapPtr, &LargestType,
+                auto incrCountAtSHM = [&M, &C, &IRB, &MapPtr, &Int8Ty, &LargestType,
                                        &One](ConstantInt *cntLoc) {
                     // Load value from (`MapPtr`+`distLoc`)
                     Value *MapCntPtr = IRB.CreateBitCast(
-                        IRB.CreateGEP(MapPtr, cntLoc), LargestType->getPointerTo()
+                        IRB.CreateGEP(Int8Ty, MapPtr, cntLoc), LargestType->getPointerTo()
                     );
-                    LoadInst *MapCnt = IRB.CreateLoad(MapCntPtr);
+                    LoadInst *MapCnt = IRB.CreateLoad(LargestType, MapCntPtr);
                     MapCnt->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
                     // Add 1
@@ -463,16 +527,16 @@ bool FGoModulePass::runOnModule(Module &M)
                 };
 
                 // Add distance to shm
-                auto addDistanceToSHM = [&M, &C, &IRB, &MapPtr, &LargestType](
+                auto addDistanceToSHM = [&M, &C, &IRB, &MapPtr, &Int8Ty, &LargestType](
                                             ConstantInt *distLoc, unsigned distance
                                         ) {
                     ConstantInt *distanceValue = ConstantInt::get(LargestType, distance);
 
                     // Load value from (`MapPtr`+`distLoc`)
                     Value *MapDistPtr = IRB.CreateBitCast(
-                        IRB.CreateGEP(MapPtr, distLoc), LargestType->getPointerTo()
+                        IRB.CreateGEP(Int8Ty, MapPtr, distLoc), LargestType->getPointerTo()
                     );
-                    LoadInst *MapDist = IRB.CreateLoad(MapDistPtr);
+                    LoadInst *MapDist = IRB.CreateLoad(LargestType, MapDistPtr);
                     MapDist->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
                     // Add distance
@@ -484,16 +548,16 @@ bool FGoModulePass::runOnModule(Module &M)
                 };
 
                 // Update minimal distance
-                auto updateMinimalDist = [&M, &C, &IRB, &MapPtr, &LargestType](
+                auto updateMinimalDist = [&M, &C, &IRB, &MapPtr, &Int8Ty, &LargestType](
                                              ConstantInt *distLoc, unsigned distance
                                          ) {
                     ConstantInt *distanceValue = ConstantInt::get(LargestType, distance);
 
                     // Load value from (`MapPtr`+`distLoc`)
                     Value *MapDistPtr = IRB.CreateBitCast(
-                        IRB.CreateGEP(MapPtr, distLoc), LargestType->getPointerTo()
+                        IRB.CreateGEP(Int8Ty, MapPtr, distLoc), LargestType->getPointerTo()
                     );
-                    LoadInst *MapDist = IRB.CreateLoad(MapDistPtr);
+                    LoadInst *MapDist = IRB.CreateLoad(LargestType, MapDistPtr);
                     MapDist->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
                     // Select the lesser one
@@ -517,12 +581,13 @@ bool FGoModulePass::runOnModule(Module &M)
                     }
                 }
             }
-            ++instrBBCount;
+
+            if (findBBDist) ++instrBBCount;
         }
     }
 
     // Some hints
-    if (!getenv("AFL_QUIET")) {
+    if (isatty(2) && !getenv("AFL_QUIET")) {
         if (instrBBCount == 0) {
             WarnOnError(false, "Failed to find instrumentation targets");
         }
@@ -534,18 +599,7 @@ bool FGoModulePass::runOnModule(Module &M)
         }
     }
 
-    return true;
+    return PA;
 }
 
-static void registerFGoPass(const PassManagerBuilder &, legacy::PassManagerBase &PM)
-{
-    PM.add(new FGoModulePass());
-}
-
-static RegisterStandardPasses RegisterFGoPass(
-    PassManagerBuilder::EP_OptimizerLast, registerFGoPass
-);
-
-static RegisterStandardPasses RegisterFGoPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerFGoPass
-);
+#endif
